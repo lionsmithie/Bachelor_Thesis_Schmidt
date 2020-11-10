@@ -12,3 +12,4 @@ print(cook_sense3.frame)   # getting the info about the frame.
 print(cook_sense3.frame.name)   # refers to the frame object, same procedure as for a lexical unit.
 
 print("Just for commiting")
+print("123")
