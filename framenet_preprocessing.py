@@ -8,5 +8,5 @@ lu_cook = fn.lus(r'.*cook\.v')
 cook_sense3 = lu_cook[2]
 
 print(cook_sense3.keys())  # to see what attributes / keys are saved for this object.
-print(cook_sense3.frame)   # getting the info about the frame.
-print(cook_sense3.frame.name)   # refers to the frame object, same procedure as for a lexical unit.
+#print(cook_sense3.frame)   # getting the info about the frame.
+#print(cook_sense3.frame.name)   # refers to the frame object, same procedure as for a lexical unit.
