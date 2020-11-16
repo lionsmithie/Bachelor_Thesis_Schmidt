@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from serialization import save_obj
+import os
 
 
 def extract_verbs_and_cfs(filename: str) -> dict:
@@ -36,7 +38,6 @@ def extract_verbs_and_cfs(filename: str) -> dict:
     return verbs_and_frames
 
 
-extracted_verbs = extract_verbs_and_cfs('/mntpnts/theses_diddley/ws20/lschmidt/data/full_frame_info.txt')
-
-for key, value in extracted_verbs.items():
-    print(key, value)
+if __name__ == '__main__':
+    extracted_cf_verbs = extract_verbs_and_cfs('/mntpnts/theses_diddley/ws20/lschmidt/data/full_frame_info.txt')
+    save_obj(extracted_cf_verbs, 'extracted_cf_verbs')

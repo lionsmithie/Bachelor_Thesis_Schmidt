@@ -10,6 +10,7 @@ def save_obj(obj, name: str) -> None:
     :param name: Filename for the object
     :return: None
     """
+    #print("import of save_obj worked!")
     with open(os.path.join('obj', name + '.pkl'), 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
@@ -20,5 +21,6 @@ def load_obj(name: str) -> object:
     :param name: Name of the object
     :return: Loaded object
     """
+    #print("import of load_obj worked!")
     with open(os.path.join('obj', name + '.pkl'), 'rb') as f:
         return pickle.load(f)
