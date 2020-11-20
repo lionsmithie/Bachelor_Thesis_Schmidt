@@ -1,0 +1,85 @@
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from preprocessing.serialization import load_obj
+import os
+
+def frames_per_lexical_unit(verb_dictionary: dict) -> dict:
+    """Counts the amount of Lexical Units which evoke a specific number of frames.
+
+    Looks like this: {1: 289, 2: 216, ...,  46: 1}
+    This means that 289 Lexical Units evoke exactly 1 frame, 216 Lexical Units evoke exactly 2 frames, 1 Lexical Unit
+    evokes exactly 46 frames.
+
+    :param verb_dictionary: Dictionary. Keys are verbs, values are the number of evoked frames in FrameNet
+    :return: Dictionary. Keys are the exact Number of frames evoked, values are the amount of LUs that evoke this amount
+    of frames.
+    """
+    statistics = {}
+    for key, value in verb_dictionary.items():
+        if value in statistics:
+            statistics[value] += 1
+        else:
+            statistics[value] = 1
+    return statistics
+
+
+def plot_verb_frame_amount(verb_frame_amount_dict: dict) -> None:
+    """Plots the statistics for evoked frames per Verb/Lexical Unit and saves the plot as a .png file.
+
+    :param verb_frame_amount_dict:
+    :return:
+    """
+    labels = []
+    means = []
+    for frames, lus in verb_frame_amount_dict.items():
+        labels.append(frames)
+        means.append(lus)
+    labels.sort()
+    means.sort(reverse=True)
+
+    x = np.arange(len(labels))  # the label locations
+    width = 0.6  # the width of the bars
+
+    fig, ax = plt.subplots()
+    rects = ax.bar(x, means, width, color='grey')
+
+    ax.set_ylabel('Lexical Units')
+    ax.set_xlabel('Frames')
+    ax.set_title('Amount of Lexical Units evoking a certain number of frames')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+
+    def autolabel(rects):
+        """Attach a text label above each bar in *rects*, displaying its height."""
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate('{}'.format(height),
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    autolabel(rects)
+
+    fig.tight_layout()
+
+    plt.savefig(os.path.join('plots', 'lus_frames_amount'))
+#    plt.show()
+    plt.close()
+
+if __name__ == '__main__':
+    cf_verb_frame_count_dict = load_obj('cf_verb_frame_count_dict')
+    frame_amount_per_lexical_unit = frames_per_lexical_unit(cf_verb_frame_count_dict)
+    print(frame_amount_per_lexical_unit)
+
+    plot_verb_frame_amount(frame_amount_per_lexical_unit)
+
+# list_to_sort = []
+
+# for key, value in hardcode_statistics.items():
+#    list_to_sort.append(key)
+# sorted_list = sorted(list_to_sort)
+
+# for key in sorted_list:
+#    print(str(hardcode_statistics[key]) + ' Lexical Units evoke {} frame(s).'.format(key))
