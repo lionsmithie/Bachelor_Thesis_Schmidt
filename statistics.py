@@ -74,12 +74,3 @@ if __name__ == '__main__':
     print(frame_amount_per_lexical_unit)
 
     plot_verb_frame_amount(frame_amount_per_lexical_unit)
-
-# list_to_sort = []
-
-# for key, value in hardcode_statistics.items():
-#    list_to_sort.append(key)
-# sorted_list = sorted(list_to_sort)
-
-# for key in sorted_list:
-#    print(str(hardcode_statistics[key]) + ' Lexical Units evoke {} frame(s).'.format(key))
