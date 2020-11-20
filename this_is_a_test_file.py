@@ -1,29 +1,30 @@
 #tbd
 from nltk.corpus import framenet as fn
 
-lu_cook = fn.lus(r'.*cook\.v')
-lu_love = fn.frames_by_lemma(r'love\.v')
+lu_love_frames = fn.frames_by_lemma(r'love\.v')
+lu_love_lus = fn.lus(r'love\.v')
 
-#print(lu_cook)  #returns a list of all lexical units which evoke a frame. (Can be more than one)
-#print(lu_cook[2])  #refers to one lexical unit and its respective frame.
-#print(lu_love)
+frame_love_sense1 = lu_love_frames[0]
 
-frame_love_sense1 = lu_love[0]
+#print(frame_love_sense1.keys())
+print(lu_love_lus)
 
-print(frame_love_sense1.keys())
-print(frame_love_sense1.definition)
-print(frame_love_sense1.definitionMarkup)
+love_sense1 = lu_love_lus[0]
+love_id1 = fn.lu(880)
+#print(love_id1)
 
-cook_sense3 = lu_cook[2]
+#print(love_sense1)
+#print(love_id17947.keys())
+# -> dict_keys(['_type', 'status', 'POS', 'name', 'ID', 'lemmaID', 'cBy', 'cDate', 'definition', 'definitionMarkup',
+# 'sentenceCount', 'lexemes', 'semTypes', 'frame', 'URL', 'subCorpus', 'exemplars'])
+#print(love_id1.exemplars)
+#print(love_id1.definition)
+#print(love_id1.subCorpus)
+#print(fn.annotations('love.v'))
+#print(frame_love_sense1.definition)
+#print(frame_love_sense1.definitionMarkup)
 
-#print(cook_sense3.keys())  # to see what attributes / keys are saved for this object.
-#print(cook_sense3.frame)   # getting the info about the frame.
-#print(cook_sense3.frame.name)   # refers to the frame object, same procedure as for a lexical unit.
+#print(love_id1.exemplars[0].annotationSet[1])
+#print(love_id1.exemplars[0].annotationSet[1].PT)
+#print(love_id1.exemplars[0].annotationSet[1].FE)
 
-
-lu_threaten = fn.lus(r'.*threaten\.v')
-threaten_sense1 = lu_threaten[0]
-threaten_sense2 = lu_threaten[1]
-
-#print(threaten_sense1.frame)
-#print(threaten_sense2.frame)
