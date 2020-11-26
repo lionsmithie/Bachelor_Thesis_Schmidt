@@ -1,27 +1,19 @@
 #tbd
 from nltk.corpus import framenet as fn
+import preprocessing.framenet_preprocessing as fn_pre
+from preprocessing.serialization import load_obj
 
-lu_love_frames = fn.frames_by_lemma(r'love\.v')
-lu_love_lus = fn.lus(r'love\.v')
+list1 = [1,("hi")]
+list2 = [1,9]
 
-frame_love_sense1 = lu_love_frames[0]
+liste = tuple(list1)
 
-#print(frame_love_sense1.keys())
-#print(lu_love_lus)
+test_dict = {(1,2,3): 5}
 
-love_sense1 = lu_love_lus[0]
-love_id1 = fn.lu(880)
+test_dict[liste] = 4
 
-#print(love_sense1)
-#print(love_id1)
-
-# -> dict_keys(['_type', 'status', 'POS', 'name', 'ID', 'lemmaID', 'cBy', 'cDate', 'definition', 'definitionMarkup',
-# 'sentenceCount', 'lexemes', 'semTypes', 'frame', 'URL', 'subCorpus', 'exemplars'])
-#print(fn.annotations(love_sense1.name))
+lu_object = fn_pre.get_lu_instance('seem')
+random_sentence = fn_pre.get_random_example_and_fes(lu_object)[0]
 
 
-#print(love_sense1.exemplars)
-#print(love_sense1.exemplars[0].annotationSet)
-#print(love_sense1.exemplars[0].annotationSet[1])
-#print(love_id1.exemplars[0].annotationSet[1].PT)
-print(love_id1.exemplars[0].annotationSet[-1].FE)
+print(random_sentence)

@@ -18,11 +18,11 @@ def frame_count(verb: str) -> int:
     :return: Integer. Amount of evoked frames
     """
     verb_regex = regex(verb)
-    frames = fn.frames_by_lemma(verb_regex)  # Returns a list with all frames evoked by the verb.
+    frames = fn.lus(verb_regex)  # Returns a list with all frames evoked by the verb.
     return len(frames)
 
 
-def get_lu_instance(verb: str, rand=True) -> object:
+def get_lu_instance(verb: str, rand=False) -> object:
     """ Retrieves a Lexical Unit Object from FrameNet given a verb.
 
     Note: If several Lexical Units for the given verb exist, and rand is set to True (default), a random Lexical Unit
@@ -37,27 +37,18 @@ def get_lu_instance(verb: str, rand=True) -> object:
     if rand is False:
         return lus_list[0]
     amount_lus = len(lus_list)
-    random_index = random.randint(0,amount_lus-1)
+    random_index = random.randint(0, amount_lus-1)
     return lus_list[random_index]
 
 
-
-def get_lu_examples(verb: str, lu_instance=None) -> list:
+def get_lu_examples(lu: object) -> list:
     """ Retrieves a list of example sentences for a Lexical Unit in FrameNet.
 
-    :param verb: String. The verb/Lexical Unit for which the sentences should be retrieved
-    :param lu_instance: FrameNet Object. Lexical Unit Instance which can be processed within the FrameNet API
+    :param lu: FrameNet Object. Lexical Unit Instance which can be processed within the FrameNet API
     :return: List. List of example sentences
     """
-    if lu_instance is None:
-        lu = regex(verb)
-        entries = fn.lus(lu)
-        instance = entries[0]  # This method is built for LUs which evoke only one frame.
-    else:
-        instance = lu_instance
-
+    instance = lu
     examples = instance.exemplars
-
     return examples
 
 
@@ -74,12 +65,13 @@ def get_random_example_and_fes(lu: object) -> list:
     random_sentence = examples[random_position]
     random_sentence_fes = random_sentence.frameAnnotation.FE
 
-    example_and_fes.append(random_sentence.text)
+    example_and_fes.append(random_sentence.text)  # Only the text of the sentence will be added, not the 'object'
     example_and_fes.append(random_sentence_fes)
 
     return example_and_fes
 
 
-love = get_lu_instance('love', rand=False)
-love_example = get_random_example_and_fes(love)
-print(love_example)
+if __name__ == '__main__':
+    love = get_lu_instance('love', rand=False)
+    love_example = get_random_example_and_fes(love)
+    print(love_example)

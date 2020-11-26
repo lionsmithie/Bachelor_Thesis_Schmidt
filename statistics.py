@@ -71,4 +71,4 @@ def plot_verb_frame_amount(verb_frame_amount_dict: dict) -> None:
 if __name__ == '__main__':
     cf_verb_frame_count_dict = load_obj('cf_verb_frame_count_dict')
     frame_amount_per_lexical_unit = frames_per_lexical_unit(cf_verb_frame_count_dict)
-#    plot_verb_frame_amount(frame_amount_per_lexical_unit)
+    plot_verb_frame_amount(frame_amount_per_lexical_unit)
