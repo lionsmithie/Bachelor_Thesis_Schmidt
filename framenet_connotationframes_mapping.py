@@ -2,7 +2,8 @@ import preprocessing.framenet_preprocessing as fn_pre
 from nltk.corpus import framenet as fn
 from preprocessing.serialization import load_obj
 from preprocessing.serialization import save_obj
-
+import en_core_web_sm
+import re
 
 def find_common_verbs(filename: str) -> list:
     """Creates a list with verbs that occur both in the Connotation Frame Lexicon and in FrameNet.
@@ -95,16 +96,266 @@ def map_cfs_lus(verbs: list, cfs: dict) -> dict:
     return mapping
 
 
+def frame_and_sentence(mapping: dict) -> dict:
+    """Creates a dictionary with verbs, Lexical Units, an example sentence and the mapped Connotation Frame.
+
+    In case of multiple Lexical Units, an example sentence for each Lexical Unit will be stored.
+
+    The returned dictionary looks like this:
+    { ( "verb", LU ID, "Example Sentence" ) :  {Connotation Frame} }
+
+    :param mapping: Dictionary. Keys are information about the verb and its LUs, values are the mapped CFs
+    :return: Dictionary. Keys are information about the verb/LU with an example sentence, values are the mapped CFs
+    """
+    sentence_mapping = {}
+
+    for key, value in mapping.items():
+        verb = key[0]
+        lus = key[1]
+
+        if type(lus) == int:  # this means that there was only one single entry
+            key_information = []
+            key_information.append(verb)
+
+            key_information.append(lus)  # lu is an Integer in this case
+
+            lu_object = fn.lu(lus)
+
+            example = fn_pre.get_random_example_and_fes(lu_object)[0]  #[0] because function gets also the FEs in [1]
+            key_information.append(example)
+
+            information = tuple(key_information)
+            sentence_mapping[information] = value  # value is the Connotation Frame
+
+        else:
+            for lu in lus:
+                key_information = []
+                key_information.append(verb)
+
+                key_information.append(lu)
+
+                lu_object = fn.lu(lus)
+
+                example = fn_pre.get_random_example_and_fes(lu_object)[0]
+                key_information.append(example)
+
+                information = tuple(key_information)
+                sentence_mapping[information] = value
+    return sentence_mapping
+
+
+def detect_subject(sentence: str, lu: str) -> list:
+    """Detects the logical subject of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*subj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
+            start_pos = token.idx                                      # Lexical Unit. Lemmatizing is important here.
+            end_pos = start_pos + len(token.text)                      # (Therefore head.lemma_)
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+
+            passive_regex = re.compile('.*subjpass.*')  # To check whether it's an active or passive case.
+            if re.match(passive_regex, token.dep_):
+                token_and_head.append(1)
+            else:
+                token_and_head.append(0)
+
+    return token_and_head
+
+
+def detect_object(sentence: str, lu: str) -> list:
+    """Detects the logical subject of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*obj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+        # if head == token.head.lemma_
+        if re.match(regex, token.dep_) and (head == token.head.lemma_ or head == token.head.head.lemma_):
+            start_pos = token.idx                                      # to make sure that also verbs with prepositions
+            end_pos = start_pos + len(token.text)                      # will be considered
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+
+            passive_regex = re.compile('.*objpass.*')  # To check whether it's an active or passive case.
+            if re.match(passive_regex, token.dep_):
+                token_and_head.append(1)
+            else:
+                token_and_head.append(0)
+
+    return token_and_head
+
+
+def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict)-> list:
+    """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
+
+    :return:
+    """
+    mapping = []
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = fn_pre.get_examples_containing_subj_and_obj(lu_object, lu_text)
+
+        if len(examples) > 0:
+
+            sentence = examples[0].text  # I just chose the first sentence as it is a black box anyway
+            fes = (examples[0].frameAnnotation.FE)[0]
+
+            logical_subject = detect_subject(sentence, lu_text)  # looks like this:
+            # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+            logical_object = detect_object(sentence, lu_text)  # same as above.
+
+            if len(logical_subject) > 0:  # if a subject was detected.
+                agent_role = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+                for fe in fes:
+                    if logical_subject[1][0] in fe or logical_subject[1][1] in fe:  # Refers to the start or end positions.
+                        agent_role.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
+                tupled_agent_role = tuple(agent_role)
+                information.append(tupled_agent_role)
+            else:
+                information.append('No agent role mapping possible.')
+
+            if len(logical_object) > 0:
+                patient_role = ['Patient']
+                for fe in fes:
+                    if logical_object[1][0] in fe or logical_object[1][1] in fe:
+                        patient_role.append(fe[2])
+                tupled_patient_role = tuple(patient_role)
+                information.append(tupled_patient_role)
+            else:
+                information.append('No patient role mapping possible.')
+
+            information.append(sentence)
+
+        else:
+            information.append('No mapping possible at all')
+
+        print(information)
+
+        mapping.append(information)
+
+    return mapping
+
+
+def map_cf_roles_and_fes_alternative(mapping_verb_lu_cfs: dict) -> list:
+    """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
+
+    :return:
+    """
+    mapping = []
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = fn_pre.get_examples_containing_subj_and_obj(lu_object, lu_text)
+
+        if len(examples) > 0:
+
+            sentence = examples[0].text  # I just chose the first sentence as it is a black box anyway
+            fes = (examples[0].frameAnnotation.FE)[0]
+
+            logical_subject = detect_subject(sentence, lu_text)  # looks like this:
+            # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+            logical_object = detect_object(sentence, lu_text)  # same as above.
+
+            if len(logical_subject) > 0:  # if a subject was detected.
+                agent_role = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element = sentence[fe_start:fe_end]
+                    if logical_subject[0] in frame_element:  # Refers to the start or end positions.
+                        agent_role.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
+                tupled_agent_role = tuple(agent_role)
+                information.append(tupled_agent_role)
+            else:
+                information.append('No agent role mapping possible.')
+
+            if len(logical_object) > 0:
+                patient_role = ['Patient']
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element = sentence[fe_start:fe_end]
+                    if logical_object[0] in frame_element:
+                        patient_role.append(fe[2])
+                tupled_patient_role = tuple(patient_role)
+                information.append(tupled_patient_role)
+            else:
+                information.append('No patient role mapping possible.')
+
+            information.append(sentence)
+
+        else:
+            information.append('No mapping possible at all')
+
+        print(information)
+
+        mapping.append(information)
+
+    return mapping
+
+
 if __name__ == '__main__':
+    print('no error please')
     # cf_verb_frame_count_dict = cf_verbs_frame_count('extracted_cf_verbs')  # contains all common verbs/LUs and the
     # amount of frames evoked.
 
-    verb_frame_count = load_obj('cf_verb_frame_count_dict')
-    cf_verbs = load_obj('extracted_cf_verbs')
+    # verb_frame_count = load_obj('cf_verb_frame_count_dict')
+    # cf_verbs = load_obj('extracted_cf_verbs')
 
     # common_verbs = find_common_verbs('extracted_cf_verbs')
-    unambiguous_verbs = find_unambiguous_common_verbs(verb_frame_count)
-    map_cf_and_fn = map_cfs_lus(unambiguous_verbs, cf_verbs)
+    # unambiguous_verbs = find_unambiguous_common_verbs(verb_frame_count)
+    # map_cf_and_fn = map_cfs_lus(unambiguous_verbs, cf_verbs)
 
     # save_obj(cf_verb_frame_count_dict, 'cf_verb_frame_count_dict')
     # save_obj(map_cf_and_fn, 'mapping_verb_lu_cfs')
+
+    mapping = load_obj('mapping_verb_lu_cfs')
+    #print(mapping)
+    #lus_sentences = frame_and_sentence(mapping)
+    role_mapping = map_cf_roles_and_fes_alternative(mapping)
+    print(role_mapping)

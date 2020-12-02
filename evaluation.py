@@ -50,9 +50,9 @@ def frame_and_sentence(mapping: dict) -> dict:
 
                 information = tuple(key_information)
                 sentence_mapping[information] = value
-
-        return sentence_mapping
+    return sentence_mapping
 
 mapping = load_obj('mapping_verb_lu_cfs')
+#print(mapping)
 sentences = frame_and_sentence(mapping)
 print(sentences)

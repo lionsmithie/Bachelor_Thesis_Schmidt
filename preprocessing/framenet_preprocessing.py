@@ -1,5 +1,6 @@
 from nltk.corpus import framenet as fn
 import random
+import framenet_connotationframes_mapping as map
 
 def regex(verb: str) -> str:
     """ Converts a verb into a regular expression so it can be processed for a FrameNet lookup.
@@ -52,6 +53,64 @@ def get_lu_examples(lu: object) -> list:
     return examples
 
 
+def get_examples_containing_subj_and_obj(lu: object, lu_text: str) -> list:
+    """
+
+    :param lu_text:
+    :param lu:
+    :return:
+    """
+    all_examples = get_lu_examples(lu)
+
+    sent_index_cont_a_subject = []
+    sent_index_cont_an_object = []
+
+    i = 0
+    subj_obj_found = 0
+
+    for example in all_examples:
+        counter = 0
+        sentence_text = example.text
+
+        logical_subject = map.detect_subject(sentence_text, lu_text)
+        if len(logical_subject) > 0:
+            sent_index_cont_a_subject.append(i)
+            counter += 1
+        # print('Das logische Subjekt dieses Beispielsatzes ist: ' + str(logical_subject))
+
+        logical_object = map.detect_object(sentence_text, lu_text)
+        if len(logical_object) > 0:
+            sent_index_cont_an_object.append(i)
+            counter +=1
+        # print('Das logische Objekt dieses Beispielsatzes ist: ' + str(logical_object))
+
+        if counter == 2:
+            break
+
+        i += 1
+
+    sent_index_subject_and_object = list(set(sent_index_cont_a_subject) & set(sent_index_cont_an_object))
+
+    sent_containing_subject = []
+    sent_containing_object = []
+    sent_containing_subject_object = []
+
+    for i in sent_index_cont_a_subject:
+        sent_containing_subject.append(all_examples[i])
+
+    for i in sent_index_cont_an_object:
+        sent_containing_object.append(all_examples[i])
+
+    for i in sent_index_subject_and_object:
+        sent_containing_subject_object.append(all_examples[i])
+
+    if len(sent_containing_subject_object) > 0:
+        return sent_containing_subject_object
+
+    else:
+        return sent_containing_subject if len(sent_containing_subject) != 0 else sent_containing_object
+
+
 def get_random_example_and_fes(lu: object) -> list:
     """ Retrieves random example sentence with the respective Frame Elements and their positions in the sentence.
 
@@ -61,12 +120,16 @@ def get_random_example_and_fes(lu: object) -> list:
     example_and_fes = []
     examples = lu.exemplars
     amount_examples = len(examples)
-    random_position = random.randint(0, amount_examples-1)
-    random_sentence = examples[random_position]
-    random_sentence_fes = random_sentence.frameAnnotation.FE
+    if amount_examples > 0:
+        random_position = random.randint(0, amount_examples-1)
+        random_sentence = examples[random_position]
+        random_sentence_fes = (random_sentence.frameAnnotation.FE)[0]
 
-    example_and_fes.append(random_sentence.text)  # Only the text of the sentence will be added, not the 'object'
-    example_and_fes.append(random_sentence_fes)
+        example_and_fes.append(random_sentence.text)  # Only the text of the sentence will be added, not the 'object'
+        example_and_fes.append(random_sentence_fes)
+    else:
+        example_and_fes.append("No sentence")
+        example_and_fes.append("No FEs")
 
     return example_and_fes
 
@@ -75,3 +138,4 @@ if __name__ == '__main__':
     love = get_lu_instance('love', rand=False)
     love_example = get_random_example_and_fes(love)
     print(love_example)
+    print(love.keys())
