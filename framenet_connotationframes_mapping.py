@@ -4,6 +4,8 @@ from preprocessing.serialization import load_obj
 from preprocessing.serialization import save_obj
 import en_core_web_sm
 import re
+import pprint
+
 
 def find_common_verbs(filename: str) -> list:
     """Creates a list with verbs that occur both in the Connotation Frame Lexicon and in FrameNet.
@@ -144,7 +146,7 @@ def frame_and_sentence(mapping: dict) -> dict:
     return sentence_mapping
 
 
-def detect_subject(sentence: str, lu: str) -> list:
+def detect_subject(nlp: object, sentence: str, lu: str) -> list:
     """Detects the logical subject of a sentence and returns it's string, position, head and passive boolean.
 
     The returned list looks like this:
@@ -154,7 +156,7 @@ def detect_subject(sentence: str, lu: str) -> list:
     :param sentence: String. Sentence to be parsed.
     :return: List. Containing information about logical subject, position in the sentence and head
     """
-    nlp = en_core_web_sm.load()
+    # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
     regex = re.compile('.*subj.*')
     head = lu
@@ -179,8 +181,8 @@ def detect_subject(sentence: str, lu: str) -> list:
     return token_and_head
 
 
-def detect_object(sentence: str, lu: str) -> list:
-    """Detects the logical subject of a sentence and returns it's string, position, head and passive boolean.
+def detect_subject_short_phrase(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the logical subject phrase of a sentence and returns it's string, position, head and passive boolean.
 
     The returned list looks like this:
     ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
@@ -189,23 +191,32 @@ def detect_object(sentence: str, lu: str) -> list:
     :param sentence: String. Sentence to be parsed.
     :return: List. Containing information about logical subject, position in the sentence and head
     """
-    nlp = en_core_web_sm.load()
+    # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*obj.*')
+    regex = re.compile('.*subj.*')
     head = lu
 
     token_and_head = []
 
     for token in doc:
-        # if head == token.head.lemma_
-        if re.match(regex, token.dep_) and (head == token.head.lemma_ or head == token.head.head.lemma_):
-            start_pos = token.idx                                      # to make sure that also verbs with prepositions
-            end_pos = start_pos + len(token.text)                      # will be considered
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
+            children_indicies = [t.idx for t in token.children]
+            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
+            children_indicies.sort()             # of the phrase.
+
+            token_index = children_indicies.index(token.idx)
+
+            children_texts = [t.text for t in token.children]
+            children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
+
+            start_pos = children_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = children_indicies[-1] + len(children_texts[-1])  # Retrieving the right most index of the phrase
+
             token_and_head.append(token.text)
             token_and_head.append((start_pos, end_pos))
             token_and_head.append(token.head.text)
 
-            passive_regex = re.compile('.*objpass.*')  # To check whether it's an active or passive case.
+            passive_regex = re.compile('.*subjpass.*')  # To check whether it's an active or passive case.
             if re.match(passive_regex, token.dep_):
                 token_and_head.append(1)
             else:
@@ -214,7 +225,208 @@ def detect_object(sentence: str, lu: str) -> list:
     return token_and_head
 
 
-def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict)-> list:
+
+def detect_subject_long_phrase(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the logical subject phrase of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    # nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*subj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
+            subtree_indicies = [t.idx for t in token.subtree]
+            subtree_indicies.append(token.idx)   # Adding the 'head' token as well as it could be at the beginning or
+            subtree_indicies.sort()              # the end of the phrase.
+
+            token_index = subtree_indicies.index(token.idx)
+
+            subtree_texts = [t.text for t in token.subtree]
+            subtree_texts.insert(token_index, token.text)
+
+            start_pos = subtree_indicies[0]
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+
+            passive_regex = re.compile('.*subjpass.*')  # To check whether it's an active or passive case.
+            if re.match(passive_regex, token.dep_):
+                token_and_head.append(1)
+            else:
+                token_and_head.append(0)
+
+    return token_and_head
+
+
+def detect_object(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the logical object of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    # nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*obj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+        # if head == token.head.lemma_
+        if re.match(regex, token.dep_) and head == token.head.lemma_:
+            start_pos = token.idx
+            end_pos = start_pos + len(token.text)
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
+
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
+            start_pos = token.idx                                     # to make sure that also wider object dependencies
+            end_pos = start_pos + len(token.text)                     # will be considered
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)
+
+
+    return token_and_head
+
+
+def detect_object_long_phrase(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the logical object phrase of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    # nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*obj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+        # if head == token.head.lemma_
+        if re.match(regex, token.dep_) and head == token.head.lemma_:
+            subtree_indicies = [t.idx for t in token.subtree]
+            subtree_indicies.append(token.idx)
+            subtree_indicies.sort()
+
+            token_index = subtree_indicies.index(token.idx)
+
+            subtree_texts = [t.text for t in token.subtree]
+            subtree_texts.insert(token_index, token.text)
+
+            start_pos = subtree_indicies[0]
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
+
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
+            subtree_indicies = [t.idx for t in token.subtree]
+            subtree_indicies.append(token.idx)
+            subtree_indicies.sort()
+
+            token_index = subtree_indicies.index(token.idx)
+
+            subtree_texts = [token.text for t in token.subtree]
+            subtree_texts.insert(token_index, token.text)
+
+            start_pos = subtree_indicies[0]
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)
+
+    return token_and_head
+
+
+def detect_object_short_phrase(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the logical object phrase of a sentence and returns it's string, position, head and passive boolean.
+
+    The returned list looks like this:
+    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about logical subject, position in the sentence and head
+    """
+    # nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*obj.*')
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:
+        # if head == token.head.lemma_
+        if re.match(regex, token.dep_) and head == token.head.lemma_:
+            children_indicies = [t.idx for t in token.children]
+            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
+            children_indicies.sort()  # of the phrase.
+
+            token_index = children_indicies.index(token.idx)
+
+            children_texts = [t.text for t in token.children]
+            children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
+
+            start_pos = children_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = children_indicies[-1] + len(children_texts[-1])  # Retrieving the right most index of the phrase
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
+
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
+            children_indicies = [t.idx for t in token.children]
+            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
+            children_indicies.sort()  # of the phrase.
+
+            token_index = children_indicies.index(token.idx)
+
+            children_texts = [t.text for t in token.children]
+            children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
+
+            start_pos = children_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = children_indicies[-1] + len(children_texts[-1])  # Retrieving the right most index of the phrase
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)
+
+
+    return token_and_head
+
+
+def map_cf_roles_and_fes_long_phrase_approach(nlp: object, mapping_verb_lu_cfs: dict) -> list:
     """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
 
     :return:
@@ -230,21 +442,21 @@ def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict)-> list:
         information.append(lu_text)
         information.append(lu_id)
 
-        examples = fn_pre.get_examples_containing_subj_and_obj(lu_object, lu_text)
+        examples = fn_pre.get_examples_containing_subj_and_obj(nlp, lu_object, lu_text)
 
         if len(examples) > 0:
 
             sentence = examples[0].text  # I just chose the first sentence as it is a black box anyway
             fes = (examples[0].frameAnnotation.FE)[0]
 
-            logical_subject = detect_subject(sentence, lu_text)  # looks like this:
+            logical_subject = detect_subject_long_phrase(nlp, sentence, lu_text)  # looks like this:
             # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
-            logical_object = detect_object(sentence, lu_text)  # same as above.
+            logical_object = detect_object_long_phrase(nlp, sentence, lu_text)  # same as above.
 
             if len(logical_subject) > 0:  # if a subject was detected.
                 agent_role = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
                 for fe in fes:
-                    if logical_subject[1][0] in fe or logical_subject[1][1] in fe:  # Refers to the start or end positions.
+                    if logical_subject[1][0] == fe[0] and logical_subject[1][1] == fe[1]:  # Refers to the start and end positions.
                         agent_role.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
                 tupled_agent_role = tuple(agent_role)
                 information.append(tupled_agent_role)
@@ -254,7 +466,7 @@ def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict)-> list:
             if len(logical_object) > 0:
                 patient_role = ['Patient']
                 for fe in fes:
-                    if logical_object[1][0] in fe or logical_object[1][1] in fe:
+                    if logical_object[1][0] == fe[0] and logical_object[1][1] == fe[1]:
                         patient_role.append(fe[2])
                 tupled_patient_role = tuple(patient_role)
                 information.append(tupled_patient_role)
@@ -273,7 +485,7 @@ def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict)-> list:
     return mapping
 
 
-def map_cf_roles_and_fes_alternative(mapping_verb_lu_cfs: dict) -> list:
+def map_cf_roles_and_fes_short_phrase_approach(nlp: object, mapping_verb_lu_cfs: dict) -> list:
     """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
 
     :return:
@@ -289,25 +501,21 @@ def map_cf_roles_and_fes_alternative(mapping_verb_lu_cfs: dict) -> list:
         information.append(lu_text)
         information.append(lu_id)
 
-        examples = fn_pre.get_examples_containing_subj_and_obj(lu_object, lu_text)
+        examples = fn_pre.get_examples_containing_subj_and_obj(nlp, lu_object, lu_text)
 
         if len(examples) > 0:
 
             sentence = examples[0].text  # I just chose the first sentence as it is a black box anyway
             fes = (examples[0].frameAnnotation.FE)[0]
 
-            logical_subject = detect_subject(sentence, lu_text)  # looks like this:
+            logical_subject = detect_subject_short_phrase(nlp, sentence, lu_text)  # looks like this:
             # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
-            logical_object = detect_object(sentence, lu_text)  # same as above.
+            logical_object = detect_object_short_phrase(nlp, sentence, lu_text)  # same as above.
 
             if len(logical_subject) > 0:  # if a subject was detected.
                 agent_role = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
-
                 for fe in fes:
-                    fe_start = fe[0]
-                    fe_end = fe[1]
-                    frame_element = sentence[fe_start:fe_end]
-                    if logical_subject[0] in frame_element:  # Refers to the start or end positions.
+                    if logical_subject[1][0] == fe[0] and logical_subject[1][1] == fe[1]:  # Refers to the start and end positions.
                         agent_role.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
                 tupled_agent_role = tuple(agent_role)
                 information.append(tupled_agent_role)
@@ -317,10 +525,7 @@ def map_cf_roles_and_fes_alternative(mapping_verb_lu_cfs: dict) -> list:
             if len(logical_object) > 0:
                 patient_role = ['Patient']
                 for fe in fes:
-                    fe_start = fe[0]
-                    fe_end = fe[1]
-                    frame_element = sentence[fe_start:fe_end]
-                    if logical_object[0] in frame_element:
+                    if logical_object[1][0] == fe[0] and logical_object[1][1] == fe[1]:
                         patient_role.append(fe[2])
                 tupled_patient_role = tuple(patient_role)
                 information.append(tupled_patient_role)
@@ -335,27 +540,483 @@ def map_cf_roles_and_fes_alternative(mapping_verb_lu_cfs: dict) -> list:
         print(information)
 
         mapping.append(information)
+
+    return mapping
+
+
+def map_cf_roles_and_fes_alternative2(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
+
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Patient) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Patient'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both subject and object are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the subject or object is a substring of this FE.
+    - If a subject is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Agent' role will be mapped to this Frame Element.
+    - If an object is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Patient' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Patient' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the sentence.
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
+    """
+    mapping = {}
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = fn_pre.get_examples_containing_subj_and_obj(nlp, lu_object, lu_text)
+
+        if len(examples) > 0:
+
+            sentence = examples[0].text  # In case there are only subjects/objects mapable I take the first sentence.
+            fes = examples[0].frameAnnotation.FE[0]
+
+            logical_subject = detect_subject(nlp, sentence, lu_text)  # looks like this:
+            # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+
+            logical_object = detect_object(nlp, sentence, lu_text)  # same as above.
+
+            agent_mapping = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+            patient_mapping = ['Theme']
+
+            if len(logical_subject) > 0:  # if a subject was detected.
+                subject_text = logical_subject[0]
+                subject_passive_bool = logical_subject[3]
+
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element_text = sentence[fe_start:fe_end]
+                    if subject_text in frame_element_text and subject_passive_bool == 0:
+                        agent_mapping.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
+                    elif subject_text in frame_element_text and subject_passive_bool == 1:
+                        patient_mapping.append(fe[2])
+            else:
+                information.append('No agent role mapping possible.')
+
+            if len(logical_object) > 0:
+                object_text = logical_object[0]
+                subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element_text = sentence[fe_start:fe_end]
+                    if object_text in frame_element_text and subject_passive_bool == 0:  # subject passive bool is taken
+                        patient_mapping.append(fe[2])  # on purpose because objects
+                    elif object_text in frame_element_text and subject_passive_bool == 1:  # are not marked as passive,
+                        agent_mapping.append(fe[2])  # but when subject is passive
+            else:  # the object has to take the
+                information.append('No patient role mapping possible.')  # agent role anyway.
+
+            tupled_agent_mapping = tuple(agent_mapping)
+            information.append(tupled_agent_mapping) if len(tupled_agent_mapping) > 0 else None
+
+            tupled_patient_mapping = tuple(patient_mapping)
+            information.append(tupled_patient_mapping) if len(tupled_patient_mapping) > 0 else None
+
+            information.append(value)
+            information.append(sentence)
+
+        else:
+            information.append('No sentences with subjects or objects found; no mapping possible.')
+
+        print(information)
+
+        mapping[lu_id] = information
+
+    return mapping
+
+
+def map_cf_roles_and_fes_only_naive_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
+
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Patient) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Patient'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both subject and object are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the subject or object is a substring of this FE.
+    - If a subject is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Agent' role will be mapped to this Frame Element.
+    - If an object is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Patient' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Patient' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the sentence.
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
+    """
+    mapping = {}
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = lu_object.exemplars
+
+        if len(examples) > 0:
+            agent_mapping = ['CF_Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+            theme_mapping = ['CF_Theme']
+
+            for example in examples:
+                sentence = example.text  # In case there are only subjects/objects mapable I take the first sentence.
+                fes = example.frameAnnotation.FE[0]
+
+                logical_subject = detect_subject(nlp, sentence, lu_text)  # looks like this:
+                # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+                logical_object = detect_object(nlp, sentence, lu_text)  # same as above.
+
+                # subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+
+                if len(logical_subject) > 0:  # and (len(agent_mapping) == 1 or subject_passive_bool is True):  # if a subject was detected.
+                    subject_text = logical_subject[0]
+                    subject_passive_bool = logical_subject[3]
+
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if subject_text in frame_element_text and subject_passive_bool == 0:
+                            agent_mapping.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
+
+                        elif subject_text in frame_element_text and subject_passive_bool == 1:
+                            theme_mapping.append(fe[2])
+
+                if len(logical_object) > 0:  # and (len(theme_mapping) == 1 or subject_passive_bool is True):
+                    object_text = logical_object[0]
+                    subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if object_text in frame_element_text and subject_passive_bool == 0:  # subject passive bool is taken
+                            theme_mapping.append(fe[2])  # on purpose because objects
+
+                        elif object_text in frame_element_text and subject_passive_bool == 1:  # are not marked as passive,
+                            agent_mapping.append(fe[2])  # but when subject is passive the object has to take the agent role
+
+                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                    break
+
+            # tupled_agent_mapping = tuple(agent_mapping)
+            # information.append(tupled_agent_mapping)
+            set_agent_mapping = set(agent_mapping)
+            information.append(set_agent_mapping)
+
+            # tupled_patient_mapping = tuple(theme_mapping)
+            # information.append(tupled_patient_mapping)
+            set_theme_mapping = set(theme_mapping)
+            information.append(set_theme_mapping)
+
+            information.append(value)
+            # information.append(sentence)
+
+        else:
+            information.append('No examples found. No Mapping possible')
+
+        print(information)
+
+        mapping[lu_id] = information
+
+    return mapping
+
+
+def map_cf_roles_and_fes_short_phrase_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
+
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Patient) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Patient'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both subject and object are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the subject or object is a substring of this FE.
+    - If a subject is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Agent' role will be mapped to this Frame Element.
+    - If an object is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Patient' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Patient' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the sentence.
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
+    """
+    mapping = {}
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = lu_object.exemplars
+
+        if len(examples) > 0:
+            agent_mapping = ['CF_Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+            theme_mapping = ['CF_Theme']
+
+            for example in examples:
+                sentence = example.text  # In case there are only subjects/objects mapable I take the first sentence.
+                fes = example.frameAnnotation.FE[0]
+
+                logical_subject = detect_subject_short_phrase(nlp, sentence, lu_text)  # looks like this:
+                # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+                logical_object = detect_object_short_phrase(nlp, sentence, lu_text)  # same as above.
+
+                subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+
+                if len(logical_subject) > 0:  # and (len(agent_mapping) == 1 or subject_passive_bool is True):  # if a subject was detected.
+                    subject_text = logical_subject[0]
+                    subject_start = logical_subject[1][0]
+                    subject_end = logical_subject[1][1]
+
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if subject_start == fe_start and subject_end == fe_end:
+                            agent_mapping.append(fe[2]) if subject_passive_bool == 0 else theme_mapping.append(fe[2])
+                            # fe looks like this: (start pos, end pos, 'Frame Element name')
+
+                if len(logical_object) > 0:  # and (len(theme_mapping) == 1 or subject_passive_bool is True):
+                    object_text = logical_object[0]
+                    object_start = logical_object[1][0]
+                    object_end = logical_object[1][1]
+
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if object_start == fe_start and object_end == fe_end:
+                            theme_mapping.append(fe[2]) if subject_passive_bool == 0 else agent_mapping.append(fe[2])
+                            # subject passive bool is taken on purpose because objects are not marked as passive, but
+                            # when subject is passive the object has to take the agent role
+
+                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                    break
+
+            # tupled_agent_mapping = tuple(agent_mapping)
+            # information.append(tupled_agent_mapping)
+            set_agent_mapping = set(agent_mapping)
+            information.append(set_agent_mapping)
+
+            # tupled_patient_mapping = tuple(theme_mapping)
+            # information.append(tupled_patient_mapping)
+            set_theme_mapping = set(theme_mapping)
+            information.append(set_theme_mapping)
+
+            information.append(value)
+            # information.append(sentence)
+
+        else:
+            information.append('No examples found. No Mapping possible')
+
+        print(information)
+
+        mapping[lu_id] = information
+
+    return mapping
+
+
+def map_cf_roles_and_fes_long_phrase_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
+
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Patient) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Patient'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both subject and object are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the subject or object is a substring of this FE.
+    - If a subject is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Agent' role will be mapped to this Frame Element.
+    - If an object is a substring, it is considered as matching with the respective Frame Element and therefore the
+      'Patient' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Patient' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the sentence.
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
+    """
+    mapping = {}
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+        examples = lu_object.exemplars
+
+        if len(examples) > 0:
+            agent_mapping = ['CF_Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+            theme_mapping = ['CF_Theme']
+
+            for example in examples:
+                sentence = example.text  # In case there are only subjects/objects mapable I take the first sentence.
+                fes = example.frameAnnotation.FE[0]
+
+                logical_subject = detect_subject_long_phrase(nlp, sentence, lu_text)  # looks like this:
+                # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+                logical_object = detect_object_long_phrase(nlp, sentence, lu_text)  # same as above.
+
+                subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+
+                if len(logical_subject) > 0:  # and (len(agent_mapping) == 1 or subject_passive_bool is True):  # if a subject was detected.
+                    subject_text = logical_subject[0]
+                    subject_start = logical_subject[1][0]
+                    subject_end = logical_subject[1][1]
+
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if subject_start == fe_start and subject_end == fe_end:
+                            agent_mapping.append(fe[2]) if subject_passive_bool == 0 else theme_mapping.append(fe[2])
+                            # fe looks like this: (start pos, end pos, 'Frame Element name')
+
+                if len(logical_object) > 0:  # and (len(theme_mapping) == 1 or subject_passive_bool is True):
+                    object_text = logical_object[0]
+                    object_start = logical_object[1][0]
+                    object_end = logical_object[1][1]
+
+                    for fe in fes:
+                        fe_start = fe[0]
+                        fe_end = fe[1]
+                        frame_element_text = sentence[fe_start:fe_end]
+
+                        if object_start == fe_start and object_end == fe_end:
+                            theme_mapping.append(fe[2]) if subject_passive_bool == 0 else agent_mapping.append(fe[2])
+                            # subject passive bool is taken on purpose because objects are not marked as passive, but
+                            # when subject is passive the object has to take the agent role
+
+                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                    break
+
+            # tupled_agent_mapping = tuple(agent_mapping)
+            # information.append(tupled_agent_mapping)
+            set_agent_mapping = set(agent_mapping)
+            information.append(set_agent_mapping)
+
+            # tupled_patient_mapping = tuple(theme_mapping)
+            # information.append(tupled_patient_mapping)
+            set_theme_mapping = set(theme_mapping)
+            information.append(set_theme_mapping)
+
+            information.append(value)
+            # information.append(sentence)
+
+        else:
+            information.append('No examples found. No Mapping possible')
+
+        print(information)
+
+        mapping[lu_id] = information
 
     return mapping
 
 
 if __name__ == '__main__':
+    nlp = en_core_web_sm.load()
+
     print('no error please')
     # cf_verb_frame_count_dict = cf_verbs_frame_count('extracted_cf_verbs')  # contains all common verbs/LUs and the
     # amount of frames evoked.
+    # save_obj(cf_verb_frame_count_dict, 'cf_verb_frame_count_dict')
 
     # verb_frame_count = load_obj('cf_verb_frame_count_dict')
     # cf_verbs = load_obj('extracted_cf_verbs')
+    # print(cf_verbs)
 
     # common_verbs = find_common_verbs('extracted_cf_verbs')
     # unambiguous_verbs = find_unambiguous_common_verbs(verb_frame_count)
     # map_cf_and_fn = map_cfs_lus(unambiguous_verbs, cf_verbs)
 
-    # save_obj(cf_verb_frame_count_dict, 'cf_verb_frame_count_dict')
     # save_obj(map_cf_and_fn, 'mapping_verb_lu_cfs')
 
     mapping = load_obj('mapping_verb_lu_cfs')
-    #print(mapping)
-    #lus_sentences = frame_and_sentence(mapping)
-    role_mapping = map_cf_roles_and_fes_alternative(mapping)
-    print(role_mapping)
+    # print(mapping)
+    # lus_sentences = frame_and_sentence(mapping)
+    # role_mapping_own_approach = map_cf_roles_and_fes_alternative2(mapping)
+    # save_obj(role_mapping_own_approach, 'role_mapping_nonambiguous_lus')
+
+
+
+    # role_mapping_short_phrases = map_cf_roles_and_fes_short_phrase_approach(nlp, mapping)
+    # save_obj(role_mapping_short_phrases, 'role_mapping_nonamb_lus_short_phrases')
+    #
+    # role_mapping_long_phrases = map_cf_roles_and_fes_long_phrase_approach(nlp, mapping)
+    # save_obj(role_mapping_long_phrases, 'role_mapping_nonamb_lus_long_phrases')
+
+    # role_mapping_all_sents = map_cf_roles_and_fes_alternative_all_sents(nlp, mapping)
+    # save_obj(role_mapping_all_sents, 'role_mapping_nonamb_all_sents')
+    #
+    # role_mapping_first_approach = map_cf_roles_and_fes_alternative2(nlp, mapping)
+    # save_obj(role_mapping_first_approach, 'role_mapping_first_approach')
+
+    role_mapping_short_phrases_all_sents = map_cf_roles_and_fes_short_phrase_all_sents(nlp, mapping)
+    save_obj(role_mapping_short_phrases_all_sents, 'role_mapping_nonamb_lus_short_phrases_all_sents')
+
+    role_mapping_long_phrases_all_sents = map_cf_roles_and_fes_long_phrase_all_sents(nlp, mapping)
+    save_obj(role_mapping_long_phrases_all_sents, 'role_mapping_nonamb_lus_long_phrases_all_sents')

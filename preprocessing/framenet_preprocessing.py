@@ -53,56 +53,42 @@ def get_lu_examples(lu: object) -> list:
     return examples
 
 
-def get_examples_containing_subj_and_obj(lu: object, lu_text: str) -> list:
-    """
+def get_examples_containing_subj_and_obj(nlp, lu: object, lu_text: str) -> list:
+    """ Retrieves and example sentence for a lexical unit which is meant to contain both a subject and an object.
 
-    :param lu_text:
-    :param lu:
-    :return:
+    As soon as one sentence is found which contains a subject and an object, this sentence will be returned.
+    If no sentence contains both subject and object the first sentence containing a subject will be returned.
+    If no sentence contains a subject the first sentence containing an object will be returned.
+    If still no sentence could be found, no sentence will be returned.
+
+    :param lu_text: String. The Lexical Unit as a string.
+    :param lu: Object. The Lexical Unit as a FrameNet Object.
+    :return: List. Contains one or more sentences in string format.
     """
     all_examples = get_lu_examples(lu)
-
-    sent_index_cont_a_subject = []
-    sent_index_cont_an_object = []
-
-    i = 0
-    subj_obj_found = 0
-
-    for example in all_examples:
-        counter = 0
-        sentence_text = example.text
-
-        logical_subject = map.detect_subject(sentence_text, lu_text)
-        if len(logical_subject) > 0:
-            sent_index_cont_a_subject.append(i)
-            counter += 1
-        # print('Das logische Subjekt dieses Beispielsatzes ist: ' + str(logical_subject))
-
-        logical_object = map.detect_object(sentence_text, lu_text)
-        if len(logical_object) > 0:
-            sent_index_cont_an_object.append(i)
-            counter +=1
-        # print('Das logische Objekt dieses Beispielsatzes ist: ' + str(logical_object))
-
-        if counter == 2:
-            break
-
-        i += 1
-
-    sent_index_subject_and_object = list(set(sent_index_cont_a_subject) & set(sent_index_cont_an_object))
 
     sent_containing_subject = []
     sent_containing_object = []
     sent_containing_subject_object = []
 
-    for i in sent_index_cont_a_subject:
-        sent_containing_subject.append(all_examples[i])
+    for example in all_examples:
+        counter = 0
+        sentence_text = example.text
 
-    for i in sent_index_cont_an_object:
-        sent_containing_object.append(all_examples[i])
+        logical_subject = map.detect_subject(nlp, sentence_text, lu_text)
+        if len(logical_subject) > 0:
+            sent_containing_subject.append(example)
+            counter += 1
+        # print('Das logische Subjekt dieses Beispielsatzes ist: ' + str(logical_subject))
 
-    for i in sent_index_subject_and_object:
-        sent_containing_subject_object.append(all_examples[i])
+        logical_object = map.detect_object(nlp, sentence_text, lu_text)
+        if len(logical_object) > 0:
+            sent_containing_object.append(example)
+            counter +=1
+        # print('Das logische Objekt dieses Beispielsatzes ist: ' + str(logical_object))
+
+        if counter == 2:
+            sent_containing_subject_object.append(example)
 
     if len(sent_containing_subject_object) > 0:
         return sent_containing_subject_object

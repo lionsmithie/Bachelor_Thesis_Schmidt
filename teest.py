@@ -10,70 +10,60 @@ import re
 nlp = en_core_web_sm.load()
 parser = DependencyParser(nlp.vocab)
 
-doc = nlp("How could she compare with you ? ")
+doc = nlp("Night Goblins cultivate different kinds of fungus and moulds in their meandering caves and tunnels .")
 
-#print(doc)
+# #print(doc)
+#
 
-#for token in doc:
-#    print(token.text, token.tag_, token.dep_, token.head.lemma_, token.head.head.lemma_)
+# subtree = [t.idx for t in doc[4].subtree]
+# children = doc[2].children
+#
+# for token in subtree:
+#     print(token)
+#
+# for token in children:
+#     print(token.text)
+#
+# print(subtree[0])
+#
+# example = ['provide', 11673, ('Agent', 'Supplier'), ('Patient', 'Theme'), 'They quickly provide the necessary '
+#                                                                           'interface to network PCs , workstations , '
+#                                                                           'and other Ethernet equipment .']
+# test = load_obj('extracted_cf_verbs')
+# print(test)
+#
+# hate = fn.lus(r'hate\.v')
+# print(hate[0].ID)
+
+role_mapping = load_obj('role_mapping_nonamb_lus_long_phrases_all_sents')
+
+# for key, value in role_mapping.items():
+#     print(value[0:3])
+#     print(value[-1])
+
+mapping_lenght = len(role_mapping)
+no_map_count = 0
+no_agent_count = 0
+no_theme_count = 0
 
 
-test_set = set()
-test_set.add("Hi")
-test_set.add("baaam")
-test_set.add("Hi")
+for key, value in role_mapping.items():
+    print(value)
+    if len(value) < 4:
+        no_map_count +=1
+    else:
+        if len(value[2]) < 2:
+            no_agent_count +=1
+        elif len(value[3]) < 2:
+            no_theme_count +=1
 
-print(test_set)
 
+print('Anzahl des nicht-ambigen mapping dicts: ' + str(mapping_lenght))
 
-def map_cf_roles_and_fes(mapping_verb_lu_cfs: dict) -> list:
-    """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
+# print('Anzahl fehlender Mappings: ' + str(no_map_count))
 
-    :return:
-    """
-    mapping = []
+print('Anzahl fehlender Themes: ' + str(no_theme_count))
+print('Anzahl fehlender Agents: ' + str(no_agent_count))
 
-    for key, value in mapping_verb_lu_cfs.items():
-        information = []
+print('Anzahl vollständige Mappings: ' + str(mapping_lenght-no_map_count-no_agent_count-no_theme_count))
 
-        lu_text = key[0]
-        lu_id = key[1]
-        lu_object = fn.lu(lu_id)
-        information.append(lu_text)
-        information.append(lu_id)
-
-        sentence_and_fes = fn_pre.get_random_example_and_fes(lu_object)
-        sentence = sentence_and_fes[0]
-        fes = sentence_and_fes[1]
-
-        logical_subject = detect_subject(sentence, lu_text)  # looks like this:
-        # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 means active)
-        logical_object = detect_object(sentence, lu_text)  # same as above.
-
-        if len(logical_subject) > 0:  # if a subject was detected.
-            agent_role = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
-            for fe in fes:
-                if logical_subject[1][0] in fe or logical_subject[1][1] in fe:  # Refers to the start or end positions.
-                    agent_role.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
-            tupled_agent_role = tuple(agent_role)
-            information.append(tupled_agent_role)
-        else:
-            information.append('No agent role mapping possible.')
-
-        if len(logical_object) > 0:
-            patient_role = ['Patient']
-            for fe in fes:
-                if logical_object[1][0] in fe or logical_object[1][1] in fe:
-                    patient_role.append(fe[2])
-            tupled_patient_role = tuple(patient_role)
-            information.append(tupled_patient_role)
-        else:
-            information.append('No patient role mapping possible.')
-
-        information.append(sentence)
-        mapping.append(information)
-
-test_list = []
-satz = "I love you."
-fe = (0,1)
-print(satz[0:1])

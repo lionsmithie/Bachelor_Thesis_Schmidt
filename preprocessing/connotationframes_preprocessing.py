@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from serialization import save_obj
+from serialization import load_obj
 import os
 
 
@@ -11,19 +12,19 @@ def extract_verbs_and_cfs(filename: str) -> dict:
 
     The Connotation Frames are saved within a nested dictionary with the following format:
 
-    {'Perspective(writer->object)': int, 'Perspective(writer->subject)': int, 'Perspective(subject->object)': int,
-    'Effect(object)': int, 'Effect(subject)': int, 'Value(object)' int, 'Value(subject)': int, 'State(object)': int,
-    'State(subject)': int, 'Perspective(reader->object)': int, 'Perspective(reader->subject)': int,
-    'Perspective(object-subject)': int}.
+    {'Perspective(writer->theme)': int, 'Perspective(writer->agent)': int, 'Perspective(agent->theme)': int,
+    'Effect(theme)': int, 'Effect(agent)': int, 'Value(theme)' int, 'Value(agent)': int, 'State(theme)': int,
+    'State(agent)': int, 'Perspective(reader->theme)': int, 'Perspective(reader->agent)': int,
+    'Perspective(theme->agent)': int}.
 
     :param filename: Path to connotation frames file
     :return: Dictionary containing English verbs as keys and nested dictionaries of Connotation Frames
     """
 
-    connotation_frames = ['Perspective(writer->object)', 'Perspective(writer->subject)', 'Perspective(subject->object)',
-                          'Effect(object)', 'Effect(subject)', 'Value(object)', 'Value(subject)', 'State(object)',
-                          'State(subject)', 'Perspective(reader->object)', 'Perspective(reader->subject)',
-                          'Perspective(object-subject)']
+    connotation_frames = ['Perspective(writer->theme)', 'Perspective(writer->agent)', 'Perspective(agent->theme)',
+                          'Effect(theme)', 'Effect(agent)', 'Value(theme)', 'Value(agent)', 'State(theme)',
+                          'State(agent)', 'Perspective(reader->theme)', 'Perspective(reader->agent)',
+                          'Perspective(theme->agent)']
     verbs_and_frames = {}
 
     with open(filename, "r", encoding="UTF-8") as file:
@@ -40,4 +41,4 @@ def extract_verbs_and_cfs(filename: str) -> dict:
 
 if __name__ == '__main__':
     extracted_cf_verbs = extract_verbs_and_cfs('/mntpnts/theses_diddley/ws20/lschmidt/data/full_frame_info.txt')
-    save_obj(extracted_cf_verbs, 'extracted_cf_verbs')
+    save_obj(extracted_cf_verbs, 'extracted_cf_verbs', up=True)

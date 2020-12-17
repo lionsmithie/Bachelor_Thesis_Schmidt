@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from preprocessing.serialization import load_obj
 import os
+import spacy
+from spacy import displacy
+from preprocessing.serialization import save_obj
 
 def frames_per_lexical_unit(verb_dictionary: dict) -> dict:
     """Counts the amount of Lexical Units which evoke a specific number of frames.
@@ -68,7 +71,25 @@ def plot_verb_frame_amount(verb_frame_amount_dict: dict) -> None:
 #    plt.show()
     plt.close()
 
+
+def show_dependency_parse(sentence: str) -> None:
+    """
+
+    :param sentence:
+    :return:
+    """
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(sentence)
+    # sentence_spans = list(doc.sents)
+    rendered = displacy.render(doc, style='dep', jupyter=True)
+    # print(rendered)
+    displacy.serve(doc, style="dep")
+    return rendered
+
 if __name__ == '__main__':
     cf_verb_frame_count_dict = load_obj('cf_verb_frame_count_dict')
     frame_amount_per_lexical_unit = frames_per_lexical_unit(cf_verb_frame_count_dict)
     plot_verb_frame_amount(frame_amount_per_lexical_unit)
+
+    show_dependency_parse("He hates days when he ca n't get straight into his workshop .")
+
