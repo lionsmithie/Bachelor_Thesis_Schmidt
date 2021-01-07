@@ -2,6 +2,7 @@ from nltk.corpus import framenet as fn
 import random
 import framenet_connotationframes_mapping as map
 
+
 def regex(verb: str) -> str:
     """ Converts a verb into a regular expression so it can be processed for a FrameNet lookup.
 

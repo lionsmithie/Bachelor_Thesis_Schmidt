@@ -28,7 +28,7 @@ def cf_verbs_frame_count(filename: str) -> dict:
     """Counts for each Connotation Frame verb the amount of FrameNet Frames evoked by this verb.
 
     Note: This method only counts verbs that occur both in the Connotation Frame Lexicon AND FrameNet.
-    The dictionary looks like this: {'have': 10, 'say': 6, 'make': 11, ...}
+    The returned dictionary looks like this: {'have': 10, 'say': 6, 'make': 11, ...}
 
     :param filename: String. The path to the preprocessed Connotation Frame Lexikon (Dictionary {verb:[CF]})
     :return: Dictionary. Keys are verbs, values are the number of evoked frames in FrameNet
@@ -147,23 +147,24 @@ def frame_and_sentence(mapping: dict) -> dict:
 
 
 def detect_subject(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical subject of a sentence and returns it's string, position, head and passive boolean.
+    """Detects the syntactic subject of a given head and returns it's string, position, head and passive boolean.
 
     The returned list looks like this:
     ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
 
+    :param nlp: Object. Preloaded Language Model.
     :param lu: String. The Lexical Unit that we want to retrieve the information for.
     :param sentence: String. Sentence to be parsed.
-    :return: List. Containing information about logical subject, position in the sentence and head
+    :return: List. Containing information about the syntactic subject, position in the sentence and head
     """
     # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*subj.*')
+    regex = re.compile('.*subj.*')  # To check later whether the token is parsed as a subject
     head = lu
 
     token_and_head = []
 
-    for token in doc:
+    for token in doc:  # For each word in the given sentence
 
         if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
             start_pos = token.idx                                      # Lexical Unit. Lemmatizing is important here.
@@ -182,29 +183,36 @@ def detect_subject(nlp: object, sentence: str, lu: str) -> list:
 
 
 def detect_subject_short_phrase(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical subject phrase of a sentence and returns it's string, position, head and passive boolean.
+    """Detects the syntactic subject phrase of a given head and returns it's string, position, head and passive boolean.
+
+    The 'short' phrase is considered as the syntactic subject and (only) it's direct descendants (children).
+    Only subjects which depend directly on the given lexical unit are being retrieved. E.g. if the verb for which we
+    want to detect the subject is 'hate', only a syntactic subject in the sentence which is headed by 'hate' will be
+    considered - and it's phrase will be retrieved.
 
     The returned list looks like this:
-    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+    ["subject head", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
 
+    :param nlp: Object. Preloaded Language Model.
     :param lu: String. The Lexical Unit that we want to retrieve the information for.
     :param sentence: String. Sentence to be parsed.
-    :return: List. Containing information about logical subject, position in the sentence and head
+    :return: List. Containing information about the syntactic 'short' subject phrase, position in the sentence and head
     """
     # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*subj.*')
+    regex = re.compile('.*subj.*')  # To check later whether the token is parsed as a subject
     head = lu
 
     token_and_head = []
 
-    for token in doc:
-        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
-            children_indicies = [t.idx for t in token.children]
-            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
-            children_indicies.sort()             # of the phrase.
+    for token in doc:  # For each word in the given sentence
 
-            token_index = children_indicies.index(token.idx)
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
+            children_indicies = [t.idx for t in token.children]        # Lexical Unit. Lemmatizing is important here!
+            children_indicies.append(token.idx)  # Adding the 'head' token as it has to be a part of the phrase
+            children_indicies.sort()
+
+            token_index = children_indicies.index(token.idx)  # Saving the index of the head token in the sentence
 
             children_texts = [t.text for t in token.children]
             children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
@@ -225,12 +233,16 @@ def detect_subject_short_phrase(nlp: object, sentence: str, lu: str) -> list:
     return token_and_head
 
 
-
 def detect_subject_long_phrase(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical subject phrase of a sentence and returns it's string, position, head and passive boolean.
+    """Detects the syntactic subject phrase of a given head and returns it's string, position, head and passive boolean.
+
+    The 'long' phrase is considered as the syntactic subject and ALL it's descendants (subtree).
+    Only subjects which depend directly on the given lexical unit are being retrieved. E.g. if the verb for which we
+    want to detect the subject is 'hate', only a syntactic subject in the sentence which is headed by 'hate' will be
+    considered - and it's phrase will be retrieved.
 
     The returned list looks like this:
-    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+    ["subject head", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
 
     :param lu: String. The Lexical Unit that we want to retrieve the information for.
     :param sentence: String. Sentence to be parsed.
@@ -238,24 +250,24 @@ def detect_subject_long_phrase(nlp: object, sentence: str, lu: str) -> list:
     """
     # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*subj.*')
+    regex = re.compile('.*subj.*')  # To check later whether the token is parsed as a subject
     head = lu
 
     token_and_head = []
 
-    for token in doc:
-        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
-            subtree_indicies = [t.idx for t in token.subtree]
-            subtree_indicies.append(token.idx)   # Adding the 'head' token as well as it could be at the beginning or
-            subtree_indicies.sort()              # the end of the phrase.
+    for token in doc:  # For each word in the given sentence
 
-            token_index = subtree_indicies.index(token.idx)
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the subject is headed by our
+            subtree_indicies = [t.idx for t in token.subtree]          # Lexical Unit. Lemmatizing is important here!
+            subtree_indicies.append(token.idx)   # Adding the 'head' token as it has to be part of the phrase.
+
+            token_index = subtree_indicies.index(token.idx)  # Saving the index of the head token in the sentence
 
             subtree_texts = [t.text for t in token.subtree]
-            subtree_texts.insert(token_index, token.text)
+            subtree_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
 
-            start_pos = subtree_indicies[0]
-            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
+            start_pos = subtree_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])  # Retrieving the right most index of the phrase
 
             token_and_head.append(token.text)
             token_and_head.append((start_pos, end_pos))
@@ -271,127 +283,75 @@ def detect_subject_long_phrase(nlp: object, sentence: str, lu: str) -> list:
 
 
 def detect_object(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical object of a sentence and returns it's string, position, head and passive boolean.
+    """Detects the syntactic object of a given head and returns it's string, position, head and passive boolean.
 
     The returned list looks like this:
-    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+    ["object", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
 
+    :param nlp: Object. Preloaded Language Model.
     :param lu: String. The Lexical Unit that we want to retrieve the information for.
     :param sentence: String. Sentence to be parsed.
-    :return: List. Containing information about logical subject, position in the sentence and head
+    :return: List. Containing information about the syntactic object, position in the sentence and head.
     """
     # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*obj.*')
+    regex = re.compile('.*obj.*')  # To check later whether a token is a parsed object.
     head = lu
 
     token_and_head = []
 
-    for token in doc:
-        # if head == token.head.lemma_
-        if re.match(regex, token.dep_) and head == token.head.lemma_:
-            start_pos = token.idx
+    for token in doc:  # For each word in the given sentence
+
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the object is headed by our
+            start_pos = token.idx                                      # Lexical Unit. Lemmatizing is important here!
             end_pos = start_pos + len(token.text)
             token_and_head.append(token.text)
             token_and_head.append((start_pos, end_pos))
             token_and_head.append(token.head.text)
             token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
 
-        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
-            start_pos = token.idx                                     # to make sure that also wider object dependencies
-            end_pos = start_pos + len(token.text)                     # will be considered
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:  # the object can also be 'grand-child' of
+            start_pos = token.idx                                             # the Lexical Unit
+            end_pos = start_pos + len(token.text)
             token_and_head.append(token.text)
             token_and_head.append((start_pos, end_pos))
             token_and_head.append(token.head.text)
             token_and_head.append(0)
 
-
-    return token_and_head
-
-
-def detect_object_long_phrase(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical object phrase of a sentence and returns it's string, position, head and passive boolean.
-
-    The returned list looks like this:
-    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
-
-    :param lu: String. The Lexical Unit that we want to retrieve the information for.
-    :param sentence: String. Sentence to be parsed.
-    :return: List. Containing information about logical subject, position in the sentence and head
-    """
-    # nlp = en_core_web_sm.load()
-    doc = nlp(sentence)
-    regex = re.compile('.*obj.*')
-    head = lu
-
-    token_and_head = []
-
-    for token in doc:
-        # if head == token.head.lemma_
-        if re.match(regex, token.dep_) and head == token.head.lemma_:
-            subtree_indicies = [t.idx for t in token.subtree]
-            subtree_indicies.append(token.idx)
-            subtree_indicies.sort()
-
-            token_index = subtree_indicies.index(token.idx)
-
-            subtree_texts = [t.text for t in token.subtree]
-            subtree_texts.insert(token_index, token.text)
-
-            start_pos = subtree_indicies[0]
-            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
-
-            token_and_head.append(token.text)
-            token_and_head.append((start_pos, end_pos))
-            token_and_head.append(token.head.text)
-            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
-
-        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
-            subtree_indicies = [t.idx for t in token.subtree]
-            subtree_indicies.append(token.idx)
-            subtree_indicies.sort()
-
-            token_index = subtree_indicies.index(token.idx)
-
-            subtree_texts = [token.text for t in token.subtree]
-            subtree_texts.insert(token_index, token.text)
-
-            start_pos = subtree_indicies[0]
-            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])
-
-            token_and_head.append(token.text)
-            token_and_head.append((start_pos, end_pos))
-            token_and_head.append(token.head.text)
-            token_and_head.append(0)
 
     return token_and_head
 
 
 def detect_object_short_phrase(nlp: object, sentence: str, lu: str) -> list:
-    """Detects the logical object phrase of a sentence and returns it's string, position, head and passive boolean.
+    """Detects the syntactic object phrase of a given head and returns it's string, position, head and passive boolean.
+
+    The 'short' phrase is considered as the syntactic object and (only) it's direct descendants (children).
+    Only objects which depend directly OR secondly on the given lexical unit are being retrieved. E.g. if the verb for
+    which we want to detect the object is 'hate', only a syntactic object in the sentence whose 'parent' or 'grand
+    parent' is 'hate' will be considered - and it's phrase will be retrieved.
 
     The returned list looks like this:
-    ["subject", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+    ["object head", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
 
     :param lu: String. The Lexical Unit that we want to retrieve the information for.
     :param sentence: String. Sentence to be parsed.
-    :return: List. Containing information about logical subject, position in the sentence and head
+    :return: List. Containing information about the syntactic object, position in the sentence and head.
     """
     # nlp = en_core_web_sm.load()
     doc = nlp(sentence)
-    regex = re.compile('.*obj.*')
+    regex = re.compile('.*obj.*')  # To check later whether the token is parsed as a subject
     head = lu
 
     token_and_head = []
 
-    for token in doc:
-        # if head == token.head.lemma_
-        if re.match(regex, token.dep_) and head == token.head.lemma_:
-            children_indicies = [t.idx for t in token.children]
-            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
-            children_indicies.sort()  # of the phrase.
+    for token in doc:  # For each word in the given sentence
 
-            token_index = children_indicies.index(token.idx)
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the object is headed by our
+            children_indicies = [t.idx for t in token.children]        # Lexical Unit.
+            children_indicies.append(token.idx)  # Adding the 'head' token as well as it has to be part of the phrase.
+            children_indicies.sort()
+
+            token_index = children_indicies.index(token.idx)  # Saving the index of the head token in the sentence
 
             children_texts = [t.text for t in token.children]
             children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
@@ -404,12 +364,12 @@ def detect_object_short_phrase(nlp: object, sentence: str, lu: str) -> list:
             token_and_head.append(token.head.text)
             token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
 
-        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:
-            children_indicies = [t.idx for t in token.children]
-            children_indicies.append(token.idx)  # Adding the 'head' token as well as it could be the Beginning or End
-            children_indicies.sort()  # of the phrase.
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:  # the object can also be 'grand-child' of
+            children_indicies = [t.idx for t in token.children]               # the Lexical Unit.
+            children_indicies.append(token.idx)  # Adding the 'head' token as it has to be part of the phrase.
+            children_indicies.sort()
 
-            token_index = children_indicies.index(token.idx)
+            token_index = children_indicies.index(token.idx)  # Saving the index of the head token in the sentence
 
             children_texts = [t.text for t in token.children]
             children_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
@@ -422,14 +382,102 @@ def detect_object_short_phrase(nlp: object, sentence: str, lu: str) -> list:
             token_and_head.append(token.head.text)
             token_and_head.append(0)
 
+    return token_and_head
+
+
+def detect_object_long_phrase(nlp: object, sentence: str, lu: str) -> list:
+    """Detects the syntactic object phrase of a given head and returns it's string, position, head and passive boolean.
+
+    The 'long' phrase is considered as the syntactic object and ALL it's descendants (subtree).
+    Only objects which depend directly OR secondly on the given lexical unit are being retrieved. E.g. if the verb for
+    which we want to detect the object is 'hate', only a syntactic object in the sentence whose 'parent' or 'grand
+    parent' is 'hate' will be considered - and it's phrase will be retrieved.
+
+    The returned list looks like this:
+    ["object head", (position start, position end), "head", 0] (0 means False for passive; so 0 is active)
+
+    :param lu: String. The Lexical Unit that we want to retrieve the information for.
+    :param sentence: String. Sentence to be parsed.
+    :return: List. Containing information about the syntactic object, position in the sentence and head.
+    """
+    # nlp = en_core_web_sm.load()
+    doc = nlp(sentence)
+    regex = re.compile('.*obj.*')  # To check later whether the token is parsed as a subject
+    head = lu
+
+    token_and_head = []
+
+    for token in doc:  # For each word in the given sentence
+
+        if re.match(regex, token.dep_) and head == token.head.lemma_:  # To make sure the object is headed by our
+            subtree_indicies = [t.idx for t in token.subtree]          # Lexical Unit
+            subtree_indicies.append(token.idx)  # Adding the 'head' token as it has to be part of the phrase.
+            subtree_indicies.sort()
+
+            token_index = subtree_indicies.index(token.idx)  # Saving the index of the head token in the sentence
+
+            subtree_texts = [t.text for t in token.subtree]
+            subtree_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
+
+            start_pos = subtree_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])  # Retrieving the right most index of the phrase
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
+
+        elif re.match(regex, token.dep_) and head == token.head.head.lemma_:  # the object can also be 'grand-child' of
+            subtree_indicies = [t.idx for t in token.subtree]                 # the Lexical Unit.
+            subtree_indicies.append(token.idx)  # Adding the 'head' token as it has to be part of the phrase.
+            subtree_indicies.sort()
+
+            token_index = subtree_indicies.index(token.idx)  # Saving the index of the head token in the sentence
+
+            subtree_texts = [token.text for t in token.subtree]
+            subtree_texts.insert(token_index, token.text)  # Inserting the 'head' token text at the right position
+
+            start_pos = subtree_indicies[0]  # Because we want to retrieve the left most index of the phrase
+            end_pos = subtree_indicies[-1] + len(subtree_texts[-1])  # Retrieving the right most index of the phrase
+
+            token_and_head.append(token.text)
+            token_and_head.append((start_pos, end_pos))
+            token_and_head.append(token.head.text)
+            token_and_head.append(0)  # Passive indicator which is not used but added in order to keep the list length
 
     return token_and_head
 
 
 def map_cf_roles_and_fes_long_phrase_approach(nlp: object, mapping_verb_lu_cfs: dict) -> list:
-    """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
 
-    :return:
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Theme) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Theme'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both the long subject phrase and the long object phrase for the LU are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the boundaries of the subject/object phrase match
+      with the boundary of the Frame Element.
+    - If the boundary of a subject phrase matches the boundary of a Frame Element, the mapping will be carried out, the
+      'Agent' role will be mapped to this Frame Element.
+    - If the boundary of an object phrase matches the boundary of a Frame Element, the mapping will be carried out, the
+      'Theme' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Theme' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the LU. This ensures that the mapping is carried out using the *logical*
+      subject and the *logical* object
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param nlp: Object. Preloaded Language Model.
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
     """
     mapping = []
 
@@ -486,12 +534,37 @@ def map_cf_roles_and_fes_long_phrase_approach(nlp: object, mapping_verb_lu_cfs: 
 
 
 def map_cf_roles_and_fes_short_phrase_approach(nlp: object, mapping_verb_lu_cfs: dict) -> list:
-    """(  [(90, 91, 'Experiencer'), (97, 127, 'Content')]  )
+    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
 
-    :return:
-    """
+    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
+    mapped Connotation Frames as values. One key - value pair looks like this:
+    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
+
+    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Theme) is being
+    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Theme'
+    role aligns with the logical object of a sentence.
+
+    The mapping is carried out as following:
+    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
+    - Both the short subject phrase and the short object phrase for the LU are being detected in this sentence.
+    - For each Frame Element in the sentence is being checked whether the boundaries of the subject/object phrase match
+      with the boundary of the Frame Element.
+    - If the boundary of a subject phrase matches the boundary of a Frame Element, the mapping will be carried out, the
+      'Agent' role will be mapped to this Frame Element.
+    - If the boundary of an object phrase matches the boundary of a Frame Element, the mapping will be carried out, the
+      'Theme' role will be mapped to this Frame Element.
+    - If the subject is marked as passive, the 'Theme' role will be mapped to this Frame Element and the 'Agent' role
+      will be mapped to the object of the LU. This ensures that the mapping is carried out using the *logical*
+      subject and the *logical* object
+
+    One example of the returned list looks like this:
+    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
+
+    :param nlp: Object. Preloaded Language Model.
+    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
+    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
     mapping = []
-
+    """
     for key, value in mapping_verb_lu_cfs.items():
         information = []
 
@@ -647,7 +720,7 @@ def map_cf_roles_and_fes_alternative2(nlp: object, mapping_verb_lu_cfs: dict) ->
     return mapping
 
 
-def map_cf_roles_and_fes_only_naive_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+def map_cf_roles_and_fes_naive_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
     """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
 
     The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
@@ -731,8 +804,8 @@ def map_cf_roles_and_fes_only_naive_all_sents(nlp: object, mapping_verb_lu_cfs: 
                         elif object_text in frame_element_text and subject_passive_bool == 1:  # are not marked as passive,
                             agent_mapping.append(fe[2])  # but when subject is passive the object has to take the agent role
 
-                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
-                    break
+                # if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                #     break
 
             # tupled_agent_mapping = tuple(agent_mapping)
             # information.append(tupled_agent_mapping)
@@ -841,8 +914,8 @@ def map_cf_roles_and_fes_short_phrase_all_sents(nlp: object, mapping_verb_lu_cfs
                             # subject passive bool is taken on purpose because objects are not marked as passive, but
                             # when subject is passive the object has to take the agent role
 
-                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
-                    break
+                # if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                #     break
 
             # tupled_agent_mapping = tuple(agent_mapping)
             # information.append(tupled_agent_mapping)
@@ -951,8 +1024,8 @@ def map_cf_roles_and_fes_long_phrase_all_sents(nlp: object, mapping_verb_lu_cfs:
                             # subject passive bool is taken on purpose because objects are not marked as passive, but
                             # when subject is passive the object has to take the agent role
 
-                if len(agent_mapping) > 1 and len(theme_mapping) > 1:
-                    break
+                # if len(agent_mapping) > 1 and len(theme_mapping) > 1:
+                #     break
 
             # tupled_agent_mapping = tuple(agent_mapping)
             # information.append(tupled_agent_mapping)
@@ -969,6 +1042,90 @@ def map_cf_roles_and_fes_long_phrase_all_sents(nlp: object, mapping_verb_lu_cfs:
 
         else:
             information.append('No examples found. No Mapping possible')
+
+        print(information)
+
+        mapping[lu_id] = information
+
+    return mapping
+
+
+def mapping_naive_all_sents(nlp: object, lu_text: str, lu_id: str, lu_object: object) -> dict:
+    """Noch schauen, ob dieser Workaround gebraucht wird.
+    """
+    mapping = {}
+    examples = lu_object.exemplars
+
+    if len(examples) > 0:
+        agent_mapping = ['CF_Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
+        theme_mapping = ['CF_Theme']
+
+        for example in examples:
+            sentence = example.text  # In case there are only subjects/objects mapable I take the first sentence.
+            fes = example.frameAnnotation.FE[0]
+
+            logical_subject = detect_subject(nlp, sentence, lu_text)  # looks like this:
+            # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
+            logical_object = detect_object(nlp, sentence, lu_text)  # same as above.
+
+            # subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+
+            if len(logical_subject) > 0:  # and (len(agent_mapping) == 1 or subject_passive_bool is True):  # if a subject was detected.
+                subject_text = logical_subject[0]
+                subject_passive_bool = logical_subject[3]
+
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element_text = sentence[fe_start:fe_end]
+
+                    if subject_text in frame_element_text and subject_passive_bool == 0:
+                        agent_mapping.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
+
+                    elif subject_text in frame_element_text and subject_passive_bool == 1:
+                        theme_mapping.append(fe[2])
+
+            if len(logical_object) > 0:  # and (len(theme_mapping) == 1 or subject_passive_bool is True):
+                object_text = logical_object[0]
+                subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
+                for fe in fes:
+                    fe_start = fe[0]
+                    fe_end = fe[1]
+                    frame_element_text = sentence[fe_start:fe_end]
+
+                    if object_text in frame_element_text and subject_passive_bool == 0:  # subject passive bool is taken
+                        theme_mapping.append(fe[2])  # on purpose because objects
+
+                    elif object_text in frame_element_text and subject_passive_bool == 1:  # are not marked as passive,
+                        agent_mapping.append(fe[2])  # but when subject is passive the object has to take the agent role
+
+        set_agent_mapping = set(agent_mapping)
+        set_theme_mapping = set(theme_mapping)
+
+    return [set_agent_mapping, set_theme_mapping]
+
+
+def map_cf_roles_and_fes(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
+    """ Noch schauen, ob dieser Workaround gebraucht wird.
+    """
+    mapping = {}
+
+    for key, value in mapping_verb_lu_cfs.items():
+        information = []
+
+        lu_text = key[0]
+        lu_id = key[1]
+        lu_object = fn.lu(lu_id)
+        information.append(lu_text)
+        information.append(lu_id)
+
+
+        mapping_naive_all_sents = mapping_naive_all_sents(nlp, lu_text, lu_id, lu_object)
+        # agent_mapping = mapping_all_sents[0]
+        # theme_mapping = mapping_all_sents[1]
+
+        information.append(mapping_naive_all_sents)
+        information.append(value)
 
         print(information)
 
@@ -1009,8 +1166,8 @@ if __name__ == '__main__':
     # role_mapping_long_phrases = map_cf_roles_and_fes_long_phrase_approach(nlp, mapping)
     # save_obj(role_mapping_long_phrases, 'role_mapping_nonamb_lus_long_phrases')
 
-    # role_mapping_all_sents = map_cf_roles_and_fes_alternative_all_sents(nlp, mapping)
-    # save_obj(role_mapping_all_sents, 'role_mapping_nonamb_all_sents')
+    role_mapping_all_sents = map_cf_roles_and_fes_naive_all_sents(nlp, mapping)
+    save_obj(role_mapping_all_sents, 'role_mapping_nonamb_naive_all_sents')
     #
     # role_mapping_first_approach = map_cf_roles_and_fes_alternative2(nlp, mapping)
     # save_obj(role_mapping_first_approach, 'role_mapping_first_approach')

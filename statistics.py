@@ -7,7 +7,8 @@ import spacy
 from spacy import displacy
 from preprocessing.serialization import save_obj
 
-def frames_per_lexical_unit(verb_dictionary: dict) -> dict:
+
+def frames_per_verb(verb_dictionary: dict) -> dict:
     """Counts the amount of Lexical Units which evoke a specific number of frames.
 
     Looks like this: {1: 289, 2: 216, ...,  46: 1}
@@ -47,9 +48,9 @@ def plot_verb_frame_amount(verb_frame_amount_dict: dict) -> None:
     fig, ax = plt.subplots()
     rects = ax.bar(x, means, width, color='grey')
 
-    ax.set_ylabel('Lexical Units')
+    ax.set_ylabel('Verbs')
     ax.set_xlabel('Frames')
-    ax.set_title('Amount of Lexical Units evoking a certain number of frames')
+    ax.set_title('Amount of Verbs evoking a certain number of frames')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
 
@@ -88,8 +89,8 @@ def show_dependency_parse(sentence: str) -> None:
 
 if __name__ == '__main__':
     cf_verb_frame_count_dict = load_obj('cf_verb_frame_count_dict')
-    frame_amount_per_lexical_unit = frames_per_lexical_unit(cf_verb_frame_count_dict)
+    frame_amount_per_lexical_unit = frames_per_verb(cf_verb_frame_count_dict)
     plot_verb_frame_amount(frame_amount_per_lexical_unit)
 
-    show_dependency_parse("He hates days when he ca n't get straight into his workshop .")
+    # show_dependency_parse("He hates days when he ca n't get straight into his workshop .")
 

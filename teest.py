@@ -10,7 +10,10 @@ import re
 nlp = en_core_web_sm.load()
 parser = DependencyParser(nlp.vocab)
 
-doc = nlp("Night Goblins cultivate different kinds of fungus and moulds in their meandering caves and tunnels .")
+doc = nlp("The constable had five stitches inserted in a wound in his left wrist . ")
+
+for token in doc:
+    print(token.text, token.head, token.pos_, token.dep_)
 
 # #print(doc)
 #
