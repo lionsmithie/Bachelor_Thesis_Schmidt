@@ -5,6 +5,7 @@ from preprocessing.serialization import save_obj
 import framenet_connotationframes_mapping as map
 import en_core_web_sm
 import random
+import os
 
 
 def frame_and_sentence(mapping: dict) -> dict:
@@ -249,6 +250,8 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
     :param role_mapping:
     :return: None.
     """
+    name = input("What's your name? ")
+
     dictionary_length = len(role_mapping)
 
     i = 10
@@ -263,12 +266,15 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
 
         to_be_evaluated = role_mapping[random_lu]
 
+        if len(to_be_evaluated) < 4:  # If no proper mapping was found
+            continue
+
         agent_mapping = to_be_evaluated[2]
-        print(agent_mapping)
-        agent_mapping.remove('CF_Agent')
+        # print(agent_mapping)
+        # agent_mapping.remove('CF_Agent')
 
         theme_mapping = to_be_evaluated[3]
-        theme_mapping.remove('CF_Theme')
+        # theme_mapping.remove('CF_Theme')
 
         lu_text = to_be_evaluated[0]
         lu_id = to_be_evaluated[1]
@@ -279,22 +285,23 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
         print("Verb/Lexical Unit: '{}'\n".format(lu_text))
 
         for example in examples:
+
+            if len(agent_mapping) <= 1 or type(agent_mapping) != set:
+                continue
+
+            if len(theme_mapping) <= 1 or type(theme_mapping) != set:
+                continue
+
             sentence = example.text
             fes = (example.frameAnnotation.FE)[0]
             # one entry looks like this: (start pos, end pos, 'Frame Element name')
 
-            print("The sentence to be evaluated: \n{}\n".format(sentence))
-
             agent_frame_elements_in_sentence = []
             theme_frame_elements_in_sentence = []
-
-            # Agent Evaluation
             agent_mapping_in_this_sentence = []
+            theme_mapping_in_this_sentence = []
 
-            print("For the role of the Agent, the following Frame Element(s) have been found:")
-            for fe in agent_mapping:
-                print(fe)
-
+            # checking if an Agent was found in this sentence
             for fe in fes:
                 frame_element_name = fe[2]
                 if frame_element_name in agent_mapping:
@@ -302,20 +309,10 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
                     fe_content_text = sentence[fe[0]:fe[1]]
                     agent_frame_elements_in_sentence.append("{} -> '{}'".format(frame_element_name, fe_content_text))
 
-            print("\nThe Frame Element(s) refer to the following words/phrases in the sentence:")
-            for frame_element in agent_frame_elements_in_sentence:
-                print(frame_element)
+            if len(agent_frame_elements_in_sentence) == 0:
+                continue  # Going to the next sentence as an evaluation wouldn't make sense.
 
-            print("\nDoes at least one of the found Frame Elements match the Role of the Agent?")
-            answer = input("y/n: ")
-
-            # Theme Evaluation
-            theme_mapping_in_this_sentence = []
-
-            print("For the role of the Theme, the following Frame Element(s) have been found:")
-            for fe in theme_mapping:
-                print(fe)
-
+            # Checking if a Theme was found in this sentence
             for fe in fes:
                 frame_element_name = fe[2]
                 if frame_element_name in theme_mapping:
@@ -323,12 +320,46 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
                     fe_content_text = sentence[fe[0]:fe[1]]
                     theme_frame_elements_in_sentence.append("{} -> '{}'".format(frame_element_name, fe_content_text))
 
-            print("\nThe Frame Element(s) refer to the following words/phrases in the sentence:")
+            if len(theme_frame_elements_in_sentence) == 0:
+                continue  # Going to the next sentence as an evaluation wouldn't make sense.
+
+            # Agent Evaluation
+            print("\n-------------------------AGENT------------------------\n")
+
+            print("The sentence to be evaluated (VERB: {}): \n{}\n".format(lu_text.upper(), sentence))
+
+            print("For the role of the Agent, the following Frame Element(s) have been found:")
+            for frame_element in agent_frame_elements_in_sentence:
+                print(frame_element)
+
+            print("\nDoes at least one of the found Frame Elements match the Role of the Agent?")
+            agent_answer = input("y/n/-/?: ")
+
+            while agent_answer not in ['y', 'n', '-']:
+                print("Please answer the question by typing 'y' for yes, 'n' for no or '-' if there is actually "
+                      "no Agent in the sentence")
+                agent_answer = input("y/n/-: ")
+
+            # Theme Evaluation
+
+            print("\n\n-------------------------THEME------------------------\n")
+
+            print("The sentence to be evaluated (VERB: {}): \n{}\n".format(lu_text.upper(), sentence))
+
+            print("For the role of the Theme, the following Frame Element(s) have been found:")
             for frame_element in theme_frame_elements_in_sentence:
                 print(frame_element)
 
             print("\nDoes at least one of the found Frame Elements match the Role of the Theme?")
-            answer = input("y/n: ")
+            theme_answer = input("y/n/-/?: ")
+
+            while theme_answer not in ['y', 'n', '-']:
+                print("Please answer the question by typing 'y' for yes, 'n' for no or '-' if there is actually "
+                      "no Theme in the sentence")
+                theme_answer = input("y/n/-: ")
+
+            with open(os.path.join('eval', name + '.txt')), 'wr') as f:
+
 
         lu_list.remove(random_lu)
         i -= 1
@@ -342,6 +373,6 @@ if __name__ == '__main__':
     # for key, value in role_mapping_short.items():
     #     print(value)
 
-    # show_mapping_for_one_verb_short(nlp, 3849, "reward")
+    #show_mapping_for_one_verb_short(nlp, 157, "imagine")
 
     map_evaluation(nlp, role_mapping_short)

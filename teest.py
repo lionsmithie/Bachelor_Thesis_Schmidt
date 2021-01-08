@@ -70,3 +70,5 @@ print('Anzahl fehlender Agents: ' + str(no_agent_count))
 
 print('Anzahl vollständige Mappings: ' + str(mapping_lenght-no_map_count-no_agent_count-no_theme_count))
 
+dictionary = {1:0}
+print(type(dictionary) == dict)
