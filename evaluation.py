@@ -6,6 +6,7 @@ import framenet_connotationframes_mapping as map
 import en_core_web_sm
 import random
 import os
+import pickle
 
 
 def frame_and_sentence(mapping: dict) -> dict:
@@ -243,28 +244,34 @@ def show_mapping_for_one_verb_long(nlp: object, lu_id: str, lu_text: str) -> Non
         print("No examples found; no mapping possible.\n")
 
 
-def map_evaluation(nlp: object, role_mapping: dict) -> None:
+def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
     """
 
+    :param eval_list: List. A list of LU IDs that are going to be evaluated.
     :param nlp:
     :param role_mapping:
     :return: None.
     """
-    name = input("What's your name? ")
+    name = (input("What's your name? ")).lower()
 
-    dictionary_length = len(role_mapping)
+    if os.path.exists('eval/{}_eval.pkl'.format(name)):
+        with open(os.path.join('eval', name + '_eval.pkl'), 'rb') as f:
+            updated_eval = pickle.load(f)
+            last_stopped = updated_eval[0]['last_stopped']
+    else:
+        last_stopped = 0
+        new_eval = [{'last_stopped': 0, 'sentence_count': 0, 'agent_positive_count': 0, 'agent_negative_count': 0,
+                     'agent_not_existing_count': 0, 'theme_positive_count': 0, 'theme_negative_count': 0,
+                     'theme_not_existing_count': 0}, {}]
+        with open(os.path.join('eval', name + '_eval.pkl'), 'wb') as f:
+            pickle.dump(new_eval, f, pickle.HIGHEST_PROTOCOL)
 
-    i = 10
-    j = 1
+        with open(os.path.join('eval', name + '_eval.pkl'), 'rb') as f:
+            updated_eval = pickle.load(f)
 
-    # creating list with all LUs stored in the dictionary to access them randomly afterwards:
-    lu_list = [key for key in role_mapping.keys()]
+    for lexical_unit in eval_list[last_stopped:]:
 
-    while i > 0:
-        random_position = random.randint(0, dictionary_length-j)
-        random_lu = lu_list[random_position]
-
-        to_be_evaluated = role_mapping[random_lu]
+        to_be_evaluated = role_mapping[lexical_unit]
 
         if len(to_be_evaluated) < 4:  # If no proper mapping was found
             continue
@@ -284,7 +291,11 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
 
         print("Verb/Lexical Unit: '{}'\n".format(lu_text))
 
+        this_verb_eval = []
+
         for example in examples:
+
+            this_sentence_eval = []
 
             if len(agent_mapping) <= 1 or type(agent_mapping) != set:
                 continue
@@ -323,6 +334,8 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
             if len(theme_frame_elements_in_sentence) == 0:
                 continue  # Going to the next sentence as an evaluation wouldn't make sense.
 
+
+
             # Agent Evaluation
             print("\n-------------------------AGENT------------------------\n")
 
@@ -331,6 +344,7 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
             print("For the role of the Agent, the following Frame Element(s) have been found:")
             for frame_element in agent_frame_elements_in_sentence:
                 print(frame_element)
+                this_sentence_eval.append('Agent Mapping: ' + str(frame_element))
 
             print("\nDoes at least one of the found Frame Elements match the Role of the Agent?")
             agent_answer = input("y/n/-/?: ")
@@ -349,6 +363,7 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
             print("For the role of the Theme, the following Frame Element(s) have been found:")
             for frame_element in theme_frame_elements_in_sentence:
                 print(frame_element)
+                this_sentence_eval.append('Theme Mapping :' + str(frame_element))
 
             print("\nDoes at least one of the found Frame Elements match the Role of the Theme?")
             theme_answer = input("y/n/-/?: ")
@@ -358,21 +373,58 @@ def map_evaluation(nlp: object, role_mapping: dict) -> None:
                       "no Theme in the sentence")
                 theme_answer = input("y/n/-: ")
 
-            with open(os.path.join('eval', name + '.txt')), 'wr') as f:
+            updated_eval[0]['sentence_count'] += 1
 
+            if agent_answer == 'y':
+                updated_eval[0]['agent_positive_count'] += 1
+            elif agent_answer == 'n':
+                updated_eval[0]['agent_negative_count'] += 1
+            else:
+                updated_eval[0]['agent_not_existing_count'] += 1
 
-        lu_list.remove(random_lu)
-        i -= 1
-        j += 1
+            if theme_answer == 'y':
+                updated_eval[0]['theme_positive_count'] += 1
+            elif theme_answer == 'n':
+                updated_eval[0]['theme_negative_count'] += 1
+            else:
+                updated_eval[0]['theme_not_existing_count'] += 1
+
+            this_sentence_eval.append(sentence)
+            this_sentence_eval.append('Agent Answer: ' + agent_answer)
+            this_sentence_eval.append('Theme Answer: ' + theme_answer)
+
+            this_verb_eval.append(this_sentence_eval)
+
+        updated_eval[1][lu_id] = this_verb_eval
+        updated_eval[0]['last_stopped'] += 1
+
+        with open(os.path.join('eval', name + '_eval.pkl'), 'wb') as f:
+            pickle.dump(updated_eval, f, pickle.HIGHEST_PROTOCOL)
 
 
 
 if __name__ == '__main__':
     nlp = en_core_web_sm.load()
     role_mapping_short = load_obj("role_mapping_nonamb_lus_short_phrases_all_sents")
-    # for key, value in role_mapping_short.items():
-    #     print(value)
+    #
+    # all_lus = [k for k in role_mapping_short.keys()]
+    # picked_lus = []
+    #
+    # i = 50
+    #
+    # while i > 0:
+    #     random_index = random.randint(0, len(all_lus)-1)
+    #     picked_lus.append(all_lus[random_index])
+    #     all_lus.remove(all_lus[random_index])
+    #     i -= 1
+    #
+    #
+    # with open(os.path.join('eval', 'random_lus.pkl'), 'wb') as f:
+    #     pickle.dump(picked_lus, f, pickle.HIGHEST_PROTOCOL)
 
-    #show_mapping_for_one_verb_short(nlp, 157, "imagine")
+    with open(os.path.join('eval', 'random_lus.pkl'), 'rb') as f:
+        picked_lus = pickle.load(f)
 
-    map_evaluation(nlp, role_mapping_short)
+    # show_mapping_for_one_verb_short(nlp, 157, "imagine")
+
+    map_evaluation(nlp, role_mapping_short, picked_lus[0:3])

@@ -6,6 +6,8 @@ import en_core_web_sm
 import spacy
 from spacy.pipeline import DependencyParser
 import re
+import pickle
+import os
 
 nlp = en_core_web_sm.load()
 parser = DependencyParser(nlp.vocab)
@@ -40,35 +42,49 @@ for token in doc:
 
 role_mapping = load_obj('role_mapping_nonamb_lus_long_phrases_all_sents')
 
+# # for key, value in role_mapping.items():
+# #     print(value[0:3])
+# #     print(value[-1])
+#
+# mapping_lenght = len(role_mapping)
+# no_map_count = 0
+# no_agent_count = 0
+# no_theme_count = 0
+#
+#
 # for key, value in role_mapping.items():
-#     print(value[0:3])
-#     print(value[-1])
+#     print(value)
+#     if len(value) < 4:
+#         no_map_count +=1
+#     else:
+#         if len(value[2]) < 2:
+#             no_agent_count +=1
+#         elif len(value[3]) < 2:
+#             no_theme_count +=1
+#
+#
+# print('Anzahl des nicht-ambigen mapping dicts: ' + str(mapping_lenght))
+#
+# # print('Anzahl fehlender Mappings: ' + str(no_map_count))
+#
+# print('Anzahl fehlender Themes: ' + str(no_theme_count))
+# print('Anzahl fehlender Agents: ' + str(no_agent_count))
+#
+# print('Anzahl vollständige Mappings: ' + str(mapping_lenght-no_map_count-no_agent_count-no_theme_count))
 
-mapping_lenght = len(role_mapping)
-no_map_count = 0
-no_agent_count = 0
-no_theme_count = 0
+test_load = 'hi'
 
+#with open(os.path.join('obj', 'role_mapping_nonamb_lus_long_phrases_all_sents' + '.pkl'), 'rb') as f:
+#    test_load = pickle.load(f)
 
-for key, value in role_mapping.items():
-    print(value)
-    if len(value) < 4:
-        no_map_count +=1
-    else:
-        if len(value[2]) < 2:
-            no_agent_count +=1
-        elif len(value[3]) < 2:
-            no_theme_count +=1
+liste1 = [9]
+liste2 = [2,3]
 
+liste1=liste2
+print(liste1)
 
-print('Anzahl des nicht-ambigen mapping dicts: ' + str(mapping_lenght))
+liste2.append(1000)
 
-# print('Anzahl fehlender Mappings: ' + str(no_map_count))
+print(liste1)
 
-print('Anzahl fehlender Themes: ' + str(no_theme_count))
-print('Anzahl fehlender Agents: ' + str(no_agent_count))
-
-print('Anzahl vollständige Mappings: ' + str(mapping_lenght-no_map_count-no_agent_count-no_theme_count))
-
-dictionary = {1:0}
-print(type(dictionary) == dict)
+print(os.path.exists('obj/role_mapping_nonamb_lus_long_phrases_all_sents' + '.pkl'))
