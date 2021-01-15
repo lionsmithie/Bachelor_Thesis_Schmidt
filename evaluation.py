@@ -244,7 +244,7 @@ def show_mapping_for_one_verb_long(nlp: object, lu_id: str, lu_text: str) -> Non
         print("No examples found; no mapping possible.\n")
 
 
-def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
+def map_evaluation(role_mapping: dict, eval_list: list) -> None:
     """
 
     :param eval_list: List. A list of LU IDs that are going to be evaluated.
@@ -254,19 +254,19 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
     """
     name = (input("What's your name? ")).lower()
 
-    if os.path.exists('eval/{}_eval.pkl'.format(name)):
-        with open(os.path.join('eval', name + '_eval.pkl'), 'rb') as f:
+    if os.path.exists('eval/{}_map_eval.pkl'.format(name)):
+        with open(os.path.join('eval', name + '_map_eval.pkl'), 'rb') as f:
             updated_eval = pickle.load(f)
             last_stopped = updated_eval[0]['last_stopped']
     else:
         last_stopped = 0
         new_eval = [{'last_stopped': 0, 'sentence_count': 0, 'agent_positive_count': 0, 'agent_negative_count': 0,
                      'agent_not_existing_count': 0, 'theme_positive_count': 0, 'theme_negative_count': 0,
-                     'theme_not_existing_count': 0}, {}]
-        with open(os.path.join('eval', name + '_eval.pkl'), 'wb') as f:
+                     'theme_not_existing_count': 0, 'agent_not_sure_count': 0, 'theme_not_sure_count': 0}, {}]
+        with open(os.path.join('eval', name + '_map_eval.pkl'), 'wb') as f:
             pickle.dump(new_eval, f, pickle.HIGHEST_PROTOCOL)
 
-        with open(os.path.join('eval', name + '_eval.pkl'), 'rb') as f:
+        with open(os.path.join('eval', name + '_map_eval.pkl'), 'rb') as f:
             updated_eval = pickle.load(f)
 
     for lexical_unit in eval_list[last_stopped:]:
@@ -293,15 +293,25 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
 
         this_verb_eval = []
 
+        this_verb_eval.append(lu_text)
+        this_verb_eval.append(lu_id)
+        this_verb_eval.append(lu_object.frame.name)
+
+        sentence_count = 0
+
         for example in examples:
 
+            if sentence_count == 2:
+                sentence_count = 0
+                break
+
             this_sentence_eval = []
-
-            if len(agent_mapping) <= 1 or type(agent_mapping) != set:
-                continue
-
-            if len(theme_mapping) <= 1 or type(theme_mapping) != set:
-                continue
+            #
+            # if len(agent_mapping) <= 1 or type(agent_mapping) != set:  # this means that no agent FE was being mapped
+            #     continue
+            #
+            # if len(theme_mapping) <= 1 or type(theme_mapping) != set:  # this means that no theme FE was being mapped
+            #     continue
 
             sentence = example.text
             fes = (example.frameAnnotation.FE)[0]
@@ -349,9 +359,9 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
             print("\nDoes at least one of the found Frame Elements match the Role of the Agent?")
             agent_answer = input("y/n/-/?: ")
 
-            while agent_answer not in ['y', 'n', '-']:
-                print("Please answer the question by typing 'y' for yes, 'n' for no or '-' if there is actually "
-                      "no Agent in the sentence")
+            while agent_answer not in ['y', 'n', '-', '?']:
+                print("Please answer the question by typing\n'y' for yes\n'n' for no\n'-' if there is actually "
+                      "no Agent in the sentence\n'?' if you're not sure")
                 agent_answer = input("y/n/-: ")
 
             # Theme Evaluation
@@ -368,9 +378,9 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
             print("\nDoes at least one of the found Frame Elements match the Role of the Theme?")
             theme_answer = input("y/n/-/?: ")
 
-            while theme_answer not in ['y', 'n', '-']:
-                print("Please answer the question by typing 'y' for yes, 'n' for no or '-' if there is actually "
-                      "no Theme in the sentence")
+            while theme_answer not in ['y', 'n', '-', '?']:
+                print("Please answer the question by typing:\n'y' for yes\n'n' for no\n'-' if there is actually "
+                      "no Theme in the sentence\n'?' if you're not sure")
                 theme_answer = input("y/n/-: ")
 
             updated_eval[0]['sentence_count'] += 1
@@ -379,6 +389,8 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
                 updated_eval[0]['agent_positive_count'] += 1
             elif agent_answer == 'n':
                 updated_eval[0]['agent_negative_count'] += 1
+            elif agent_answer == '?':
+                updated_eval[0]['agent_not_sure_count'] += 1
             else:
                 updated_eval[0]['agent_not_existing_count'] += 1
 
@@ -386,6 +398,8 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
                 updated_eval[0]['theme_positive_count'] += 1
             elif theme_answer == 'n':
                 updated_eval[0]['theme_negative_count'] += 1
+            elif theme_answer == '?':
+                updated_eval[0]['theme_not_sure_count'] += 1
             else:
                 updated_eval[0]['theme_not_existing_count'] += 1
 
@@ -395,30 +409,287 @@ def map_evaluation(nlp: object, role_mapping: dict, eval_list: list) -> None:
 
             this_verb_eval.append(this_sentence_eval)
 
+            sentence_count += 1
+
         updated_eval[1][lu_id] = this_verb_eval
         updated_eval[0]['last_stopped'] += 1
 
-        with open(os.path.join('eval', name + '_eval.pkl'), 'wb') as f:
+        with open(os.path.join('eval', name + '_map_eval.pkl'), 'wb') as f:
             pickle.dump(updated_eval, f, pickle.HIGHEST_PROTOCOL)
+
+    print("Evaluation completed! Thank you")
+
+
+def cf_evaluation(role_mapping: dict, eval_list: list) -> None:
+    """
+    The returned list looks like this:
+    [{statistics dict}, {LU ID: [lu_text, lu_id, frame, [sentence1_eval, sentence2_eval]]}]
+    :param eval_list: List. A list of LU IDs that are going to be evaluated.
+    :param role_mapping:
+    :return: None.
+    """
+    name = (input("What's your name? ")).lower()
+
+    if os.path.exists('eval/{}_cf_eval.pkl'.format(name)):
+        with open(os.path.join('eval', name + '_cf_eval.pkl'), 'rb') as f:
+            updated_eval = pickle.load(f)
+            last_stopped = updated_eval[0]['last_stopped']
+    else:
+        last_stopped = 0
+        new_eval = [{'last_stopped': 0, 'sentence_count': 0}, {}]
+        with open(os.path.join('eval', name + '_cf_eval.pkl'), 'wb') as f:
+            pickle.dump(new_eval, f, pickle.HIGHEST_PROTOCOL)
+
+        with open(os.path.join('eval', name + '_cf_eval.pkl'), 'rb') as f:
+            updated_eval = pickle.load(f)
+
+    for lexical_unit in eval_list[last_stopped:]:
+
+        to_be_evaluated = role_mapping[lexical_unit]
+
+        if len(to_be_evaluated) < 4:  # If no proper mapping was found
+            continue
+
+        agent_mapping = to_be_evaluated[2]  # To check later if agent and theme are in the sentence in order to be able
+        theme_mapping = to_be_evaluated[3]  # to evaluate the Connotation Frame
+
+        connotation_frame = to_be_evaluated[6]
+
+        lu_text = to_be_evaluated[0]
+        lu_id = to_be_evaluated[1]
+        lu_object = fn.lu(lu_id)
+
+        examples = lu_object.exemplars
+
+        this_verb_eval = []
+
+        this_verb_eval.append(lu_text)
+        this_verb_eval.append(lu_id)
+        this_verb_eval.append(lu_object.frame.name)
+
+        sentence_count = 0
+
+        print("Verb: '{}'\n".format(lu_text))
+        print("Please answer the following Connotation Frame Questions. How would you rate the following features?:\n")
+
+        persp_writer_agent_verb_eval = input("Perspective(writer->agent) [please type in value between 1-5 or '?']:\n")
+        while persp_writer_agent_verb_eval not in ['1', '2', '3', '4', '5', '?']:
+            persp_writer_agent_verb_eval = input("Perspective(writer->agent) [please type in value between 1-5 or '?']:\n")
+
+        persp_writer_theme_verb_eval = input("Perspective(writer->theme) [please type in value between 1-5 or '?']:\n")
+        while persp_writer_theme_verb_eval not in ['1', '2', '3', '4', '5', '?']:
+            persp_writer_theme_verb_eval = input("Perspective(writer->theme) [please type in value between 1-5 or '?']:\n")
+
+        persp_agent_theme_verb_eval = input("Perspective(agent->theme) [please type in value between 1-5 or '?']:\n")
+        while persp_agent_theme_verb_eval not in ['1', '2', '3', '4', '5', '?']:
+            persp_agent_theme_verb_eval = input("Perspective(agent->theme) [please type in value between 1-5 or '?']:\n")
+
+        persp_theme_agent_verb_eval = input("Perspective(theme->agent) [please type in value between 1-5 or '?']:\n")
+        while persp_theme_agent_verb_eval not in ['1', '2', '3', '4', '5', '?']:
+            persp_theme_agent_verb_eval = input("Perspective(theme->agent) [please type in value between 1-5 or '?']:\n")
+
+        value_theme_verb_eval = input("Value(theme) [please type in value between 1-5 or '?']:\n")
+        while value_theme_verb_eval not in ['1', '2', '3', '4', '5', '?']:
+            value_theme_verb_eval = input("Value(theme) [please type in value between 1-5 or '?']:\n")
+
+        verb_cf_eval = []
+
+        persp_writer_agent_list = ['Perspective(writer->agent)', connotation_frame['Perspective(writer->agent)'],
+                                   persp_writer_agent_verb_eval]
+        persp_writer_theme_list = ['Perspective(writer->theme)', connotation_frame['Perspective(writer->theme)'],
+                                   persp_writer_theme_verb_eval]
+        persp_agent_theme_list = ['Perspective(agent->theme)', connotation_frame['Perspective(agent->theme)'],
+                                  persp_agent_theme_verb_eval]
+        persp_theme_agent_list = ['Perspective(theme->agent)', connotation_frame['Perspective(theme->agent)'],
+                                  persp_theme_agent_verb_eval]
+        value_theme_list = ['Value(theme)', connotation_frame['Value(theme)'], value_theme_verb_eval]
+
+        for example in examples:
+
+            if sentence_count == 2:
+                sentence_count = 0
+                break
+
+            sentence = example.text
+            fes = (example.frameAnnotation.FE)[0]
+            # one entry looks like this: (start pos, end pos, 'Frame Element name')
+
+            agent_frame_elements_in_sentence = []
+            theme_frame_elements_in_sentence = []
+            agent_mapping_in_this_sentence = []
+            theme_mapping_in_this_sentence = []
+
+            # checking if an Agent was found in this sentence - This is also important for the CF evaluation!!
+            for fe in fes:
+                frame_element_name = fe[2]
+                if frame_element_name in agent_mapping:
+                    agent_mapping_in_this_sentence.append(frame_element_name)
+                    fe_content_text = sentence[fe[0]:fe[1]]
+                    agent_frame_elements_in_sentence.append("{} -> '{}'".format(frame_element_name, fe_content_text))
+
+            if len(agent_frame_elements_in_sentence) == 0:
+                continue  # Going to the next sentence as an evaluation wouldn't make sense.
+
+            # Checking if a Theme was found in this sentence
+            for fe in fes:
+                frame_element_name = fe[2]
+                if frame_element_name in theme_mapping:
+                    theme_mapping_in_this_sentence.append(frame_element_name)
+                    fe_content_text = sentence[fe[0]:fe[1]]
+                    theme_frame_elements_in_sentence.append("{} -> '{}'".format(frame_element_name, fe_content_text))
+
+            if len(theme_frame_elements_in_sentence) == 0:
+                continue  # Going to the next sentence as an evaluation wouldn't make sense.
+
+            # Verb Evaluation
+            print("Verb: '{}'\n".format(lu_text))
+
+            print("The sentence to be evaluated (VERB: {}): \n{}\n".format(lu_text.upper(), sentence))
+
+            persp_writer_agent_sent_eval = input(
+                "Perspective(writer->agent) [please type in value between 1-5 or '?']:\n")
+            while persp_writer_agent_sent_eval not in ['1', '2', '3', '4', '5', '?']:
+                persp_writer_agent_sent_eval = input(
+                    "Perspective(writer->agent) [please type in value between 1-5 or '?']:\n")
+
+            persp_writer_theme_sent_eval = input(
+                "Perspective(writer->theme) [please type in value between 1-5 or '?']:\n")
+            while persp_writer_theme_sent_eval not in ['1', '2', '3', '4', '5', '?']:
+                persp_writer_theme_sent_eval = input(
+                    "Perspective(writer->theme) [please type in value between 1-5 or '?']:\n")
+
+            persp_agent_theme_sent_eval = input(
+                "Perspective(agent->theme) [please type in value between 1-5 or '?']:\n")
+            while persp_agent_theme_sent_eval not in ['1', '2', '3', '4', '5', '?']:
+                persp_agent_theme_sent_eval = input(
+                    "Perspective(agent->theme) [please type in value between 1-5 or '?']:\n")
+
+            persp_theme_agent_sent_eval = input(
+                "Perspective(theme->agent) [please type in value between 1-5 or '?']:\n")
+            while persp_theme_agent_sent_eval not in ['1', '2', '3', '4', '5', '?']:
+                persp_theme_agent_sent_eval = input(
+                    "Perspective(theme->agent) [please type in value between 1-5 or '?']:\n")
+
+            value_theme_sent_eval = input("Value(theme) [please type in value between 1-5 or '?']:\n")
+            while value_theme_sent_eval not in ['1', '2', '3', '4', '5', '?']:
+                value_theme_sent_eval = input("Value(theme) [please type in value between 1-5 or '?']:\n")
+
+            updated_eval[0]['sentence_count'] += 1
+
+            persp_writer_agent_list.append(persp_writer_agent_sent_eval)
+            persp_writer_theme_list.append(persp_writer_theme_sent_eval)
+            persp_agent_theme_list.append(persp_agent_theme_sent_eval)
+            persp_theme_agent_list.append(persp_theme_agent_sent_eval)
+            value_theme_list.append(value_theme_sent_eval)
+
+            this_verb_eval.append(sentence)
+
+            sentence_count += 1
+
+        verb_cf_eval.append(tuple(persp_writer_agent_list))
+        verb_cf_eval.append(tuple(persp_writer_theme_list))
+        verb_cf_eval.append(tuple(persp_agent_theme_list))
+        verb_cf_eval.append(tuple(persp_theme_agent_list))
+        verb_cf_eval.append(tuple(value_theme_list))
+
+        this_verb_eval.insert(3, verb_cf_eval)
+
+        updated_eval[1][lu_id] = this_verb_eval
+        updated_eval[0]['last_stopped'] += 1
+
+        with open(os.path.join('eval', name + '_cf_eval.pkl'), 'wb') as f:
+            pickle.dump(updated_eval, f, pickle.HIGHEST_PROTOCOL)
+
+    print("Evaluation completed! Thank you")
+
+
+def pick_lus_for_evaluation(nlp: object, role_mapping: dict) -> list:
+    """
+    one entry looks like this:
+    {LU ID: ['verb', LU ID, {'CF_Agent', 'Frame Element'}, {'CF_Theme', 'Frame Element'}, 'Frame', Passive Cases, {CF}]}
+    :param role_mapping:
+    :return:
+    """
+    lus_and_counts = []
+
+    candidate_lus = [k for k in role_mapping.keys()]
+
+    picked_lus = []
+
+    sentence_count = 0
+    passive_count = 0
+    # same_frame_count = 0  # später manuell evaluieren, wie sich das Mapping bei Verben desselben Frames verhält. Sind
+                            # wahrscheinlich nicht so viele.
+
+    for lu_id, information in role_mapping.items():
+        if len(information) < 6:
+            candidate_lus.remove(lu_id)
+        elif len(information[2]) < 2 or len(information[3]) < 2:
+            candidate_lus.remove(lu_id)
+
+    while len(picked_lus) < 30:
+        random_index = random.randint(0, len(candidate_lus)-1)
+
+        chosen_lu = candidate_lus[random_index]
+
+        lu_text = role_mapping[chosen_lu][0]
+        lu_object = fn.lu(chosen_lu)
+        examples = lu_object.exemplars
+
+        agent_mapping = role_mapping[chosen_lu][2]
+        theme_mapping = role_mapping[chosen_lu][3]
+
+        usable_sentence_count = 0
+        passive_cases_this_sent = 0
+
+        for example in examples:
+            sentence = example.text
+            fes = (example.frameAnnotation.FE)[0]
+            # one entry looks like this: (start pos, end pos, 'Frame Element name')
+
+            agent_frame_elements_in_sentence = []
+            theme_frame_elements_in_sentence = []
+            agent_mapping_in_this_sentence = []
+            theme_mapping_in_this_sentence = []
+
+            # checking if an Agent and Theme was found in this sentence
+            for fe in fes:
+                frame_element_name = fe[2]
+
+                if frame_element_name in agent_mapping:
+                    agent_mapping_in_this_sentence.append(frame_element_name)
+
+                if frame_element_name in theme_mapping:
+                    theme_mapping_in_this_sentence.append(frame_element_name)
+
+            if len(agent_mapping_in_this_sentence) != 0 and len(theme_mapping_in_this_sentence) != 0:
+                usable_sentence_count += 1
+
+            # passive case checking:
+            subject = map.detect_subject(nlp, sentence, lu_text)
+            passive = subject[3] if len(subject) == 4 else 0
+            passive_cases_this_sent += passive  # 'passive' is an integer 0 or 1
+
+        if usable_sentence_count != 0:
+            sentence_count += usable_sentence_count
+            passive_count += passive_cases_this_sent
+            picked_lus.append(chosen_lu)
+            candidate_lus.remove(chosen_lu)
+
+    lus_and_counts.append(sentence_count)
+    lus_and_counts.append(passive_count)
+    lus_and_counts.append(picked_lus)
+
+    return lus_and_counts
 
 
 
 if __name__ == '__main__':
     nlp = en_core_web_sm.load()
     role_mapping_short = load_obj("role_mapping_nonamb_lus_short_phrases_all_sents")
-    #
-    # all_lus = [k for k in role_mapping_short.keys()]
-    # picked_lus = []
-    #
-    # i = 50
-    #
-    # while i > 0:
-    #     random_index = random.randint(0, len(all_lus)-1)
-    #     picked_lus.append(all_lus[random_index])
-    #     all_lus.remove(all_lus[random_index])
-    #     i -= 1
-    #
-    #
+
+    # updated_picked_lus = pick_lus_for_evaluation(nlp, role_mapping_short)
+    # print(updated_picked_lus)
     # with open(os.path.join('eval', 'random_lus.pkl'), 'wb') as f:
     #     pickle.dump(picked_lus, f, pickle.HIGHEST_PROTOCOL)
 
@@ -427,4 +698,10 @@ if __name__ == '__main__':
 
     # show_mapping_for_one_verb_short(nlp, 157, "imagine")
 
-    map_evaluation(nlp, role_mapping_short, picked_lus[0:3])
+    # map_evaluation(role_mapping_short, picked_lus[0:3])
+    # cf_evaluation(role_mapping_short, picked_lus[0:2])
+
+    with open(os.path.join('eval', 'user1_cf_eval.pkl'), 'rb') as f:
+        test_cf_eval = pickle.load(f)
+
+    print(test_cf_eval)
