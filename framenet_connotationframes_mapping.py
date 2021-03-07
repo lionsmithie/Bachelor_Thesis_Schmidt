@@ -617,109 +617,6 @@ def map_cf_roles_and_fes_short_phrase_approach(nlp: object, mapping_verb_lu_cfs:
     return mapping
 
 
-def map_cf_roles_and_fes_alternative2(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
-    """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
-
-    The mapping is taking a dictionary as an input which contains the FrameNet Lexical Units as keys and the (already)
-    mapped Connotation Frames as values. One key - value pair looks like this:
-    {('verb', lu id): {'Perspective(writer->object)':'0,3', ...}}
-
-    For each verb (-> for each Lexical Unit) a full mapping of both Connotation Frame Roles (Agent & Patient) is being
-    performed. It is considered that the 'Agent' role aligns with the logical subject of a sentence and the 'Patient'
-    role aligns with the logical object of a sentence.
-
-    The mapping is carried out as following:
-    - For each LU, one example sentence is being generated which is meant to contain both a subject and an object.
-    - Both subject and object are being detected in this sentence.
-    - For each Frame Element in the sentence is being checked whether the subject or object is a substring of this FE.
-    - If a subject is a substring, it is considered as matching with the respective Frame Element and therefore the
-      'Agent' role will be mapped to this Frame Element.
-    - If an object is a substring, it is considered as matching with the respective Frame Element and therefore the
-      'Patient' role will be mapped to this Frame Element.
-    - If the subject is marked as passive, the 'Patient' role will be mapped to this Frame Element and the 'Agent' role
-      will be mapped to the object of the sentence.
-
-    One example of the returned list looks like this:
-    ['verb', lu id, ('Agent', 'mapped FE'), ('Patient', 'mapped FE'), 'Example sentence.']
-
-    :param mapping_verb_lu_cfs: Dictionary. Keys are a tuple containing verb and lu id, values are the respective CF.
-    :return: Dictionary. Keys are LU IDs, values are the verbs, role mappings, CFs and example sentences in a list.
-    """
-    mapping = {}
-
-    for key, value in mapping_verb_lu_cfs.items():
-        information = []
-
-        lu_text = key[0]
-        lu_id = key[1]
-        lu_object = fn.lu(lu_id)
-        information.append(lu_text)
-        information.append(lu_id)
-
-        examples = fn_pre.get_examples_containing_subj_and_obj(nlp, lu_object, lu_text)
-
-        if len(examples) > 0:
-
-            sentence = examples[0].text  # In case there are only subjects/objects mapable I take the first sentence.
-            fes = examples[0].frameAnnotation.FE[0]
-
-            logical_subject = detect_subject(nlp, sentence, lu_text)  # looks like this:
-            # ["subject", (position start, position end), "head", 0] (0 means False for passive boolean; so 0 is active)
-
-            logical_object = detect_object(nlp, sentence, lu_text)  # same as above.
-
-            agent_mapping = ['Agent']  # For the direct mapping of the cf 'agent' to the fn 'frame element'
-            patient_mapping = ['Theme']
-
-            if len(logical_subject) > 0:  # if a subject was detected.
-                subject_text = logical_subject[0]
-                subject_passive_bool = logical_subject[3]
-
-                for fe in fes:
-                    fe_start = fe[0]
-                    fe_end = fe[1]
-                    frame_element_text = sentence[fe_start:fe_end]
-                    if subject_text in frame_element_text and subject_passive_bool == 0:
-                        agent_mapping.append(fe[2])  # fe looks like this: (start pos, end pos, 'Frame Element name')
-                    elif subject_text in frame_element_text and subject_passive_bool == 1:
-                        patient_mapping.append(fe[2])
-            else:
-                information.append('No agent role mapping possible.')
-
-            if len(logical_object) > 0:
-                object_text = logical_object[0]
-                subject_passive_bool = logical_subject[3] if len(logical_subject) > 0 else 0
-
-                for fe in fes:
-                    fe_start = fe[0]
-                    fe_end = fe[1]
-                    frame_element_text = sentence[fe_start:fe_end]
-                    if object_text in frame_element_text and subject_passive_bool == 0:  # subject passive bool is taken
-                        patient_mapping.append(fe[2])  # on purpose because objects
-                    elif object_text in frame_element_text and subject_passive_bool == 1:  # are not marked as passive,
-                        agent_mapping.append(fe[2])  # but when subject is passive
-            else:  # the object has to take the
-                information.append('No patient role mapping possible.')  # agent role anyway.
-
-            tupled_agent_mapping = tuple(agent_mapping)
-            information.append(tupled_agent_mapping) if len(tupled_agent_mapping) > 0 else None
-
-            tupled_patient_mapping = tuple(patient_mapping)
-            information.append(tupled_patient_mapping) if len(tupled_patient_mapping) > 0 else None
-
-            information.append(value)
-            information.append(sentence)
-
-        else:
-            information.append('No sentences with subjects or objects found; no mapping possible.')
-
-        print(information)
-
-        mapping[lu_id] = information
-
-    return mapping
-
-
 def map_cf_roles_and_fes_naive_all_sents(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
     """Mapping of all Connotation Frame Roles and Frame Elements in FrameNet through Subjects/Objects in a sentence.
 
@@ -1034,11 +931,13 @@ def map_cf_roles_and_fes_long_phrase_all_sents(nlp: object, mapping_verb_lu_cfs:
                         fe_end = fe[1]
                         frame_element_text = sentence[fe_start:fe_end]
 
-                        if subject_passive_bool == 0:
-                            agent_mapping.append(fe[2])
-                        else:
-                            theme_mapping.append(fe[2])
-                            passive_count += 1
+                        if subject_start == fe_start and subject_end == fe_end:
+
+                            if subject_passive_bool == 0:
+                                agent_mapping.append(fe[2])
+                            else:
+                                theme_mapping.append(fe[2])
+                                passive_count += 1
 
 
                 if len(logical_object) > 0:  # and (len(theme_mapping) == 1 or subject_passive_bool is True):
@@ -1171,41 +1070,26 @@ def map_cf_roles_and_fes(nlp: object, mapping_verb_lu_cfs: dict) -> dict:
 
 if __name__ == '__main__':
     nlp = en_core_web_sm.load()
-
-    print('no error please')
-    # cf_verb_frame_count_dict = cf_verbs_frame_count('extracted_cf_verbs')  # contains all common verbs/LUs and the
+    cf_verb_frame_count_dict = cf_verbs_frame_count('extracted_cf_verbs')  # contains all common verbs/LUs and the
     # amount of frames evoked.
-    # save_obj(cf_verb_frame_count_dict, 'cf_verb_frame_count_dict')
+    save_obj(cf_verb_frame_count_dict, 'cf_verb_frame_count_dict')
 
-    # verb_frame_count = load_obj('cf_verb_frame_count_dict')
-    # cf_verbs = load_obj('extracted_cf_verbs')
+    verb_frame_count = load_obj('cf_verb_frame_count_dict')
+    cf_verbs = load_obj('extracted_cf_verbs')
     # print(cf_verbs)
 
     # common_verbs = find_common_verbs('extracted_cf_verbs')
-    # unambiguous_verbs = find_unambiguous_common_verbs(verb_frame_count)
-    # map_cf_and_fn = map_cfs_lus(unambiguous_verbs, cf_verbs)
+    unambiguous_verbs = find_unambiguous_common_verbs(verb_frame_count)
+    map_cf_and_fn = map_cfs_lus(unambiguous_verbs, cf_verbs)
 
-    # save_obj(map_cf_and_fn, 'mapping_verb_lu_cfs')
+    save_obj(map_cf_and_fn, 'mapping_verb_lu_cfs')
 
     mapping = load_obj('mapping_verb_lu_cfs')
     # print(mapping)
     # lus_sentences = frame_and_sentence(mapping)
-    # role_mapping_own_approach = map_cf_roles_and_fes_alternative2(mapping)
-    # save_obj(role_mapping_own_approach, 'role_mapping_nonambiguous_lus')
 
-
-
-    # role_mapping_short_phrases = map_cf_roles_and_fes_short_phrase_approach(nlp, mapping)
-    # save_obj(role_mapping_short_phrases, 'role_mapping_nonamb_lus_short_phrases')
-    #
-    # role_mapping_long_phrases = map_cf_roles_and_fes_long_phrase_approach(nlp, mapping)
-    # save_obj(role_mapping_long_phrases, 'role_mapping_nonamb_lus_long_phrases')
-
-    # role_mapping_all_sents = map_cf_roles_and_fes_naive_all_sents(nlp, mapping)
-    # save_obj(role_mapping_all_sents, 'role_mapping_nonamb_naive_all_sents_UPDATED')
-    #
-    # role_mapping_first_approach = map_cf_roles_and_fes_alternative2(nlp, mapping)
-    # save_obj(role_mapping_first_approach, 'role_mapping_first_approach')
+    role_mapping_naive_all_sents = map_cf_roles_and_fes_naive_all_sents(nlp, mapping)
+    save_obj(role_mapping_naive_all_sents, 'role_mapping_nonamb_naive_all_sents')
 
     role_mapping_short_phrases_all_sents = map_cf_roles_and_fes_short_phrase_all_sents(nlp, mapping)
     save_obj(role_mapping_short_phrases_all_sents, 'role_mapping_nonamb_lus_short_phrases_all_sents')

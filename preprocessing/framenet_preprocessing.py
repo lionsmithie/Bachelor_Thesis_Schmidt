@@ -119,10 +119,3 @@ def get_random_example_and_fes(lu: object) -> list:
         example_and_fes.append("No FEs")
 
     return example_and_fes
-
-
-if __name__ == '__main__':
-    love = get_lu_instance('love', rand=False)
-    love_example = get_random_example_and_fes(love)
-    print(love_example)
-    print(love.keys())

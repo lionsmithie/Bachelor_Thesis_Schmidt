@@ -8,14 +8,15 @@ from spacy.pipeline import DependencyParser
 import re
 import pickle
 import os
+import pprint
 
-nlp = en_core_web_sm.load()
-parser = DependencyParser(nlp.vocab)
-
-doc = nlp("The constable had five stitches inserted in a wound in his left wrist . ")
-
-for token in doc:
-    print(token.text, token.head, token.pos_, token.dep_)
+# nlp = en_core_web_sm.load()
+# parser = DependencyParser(nlp.vocab)
+#
+# doc = nlp("We sign in , have our boat inspected by that nice man from Eclipse and are duly body tagged with a nylon cord bracelet and a number .")
+#
+# for token in doc:
+#     print(token.text, token.head, token.pos_, token.dep_)
 
 # #print(doc)
 #
@@ -40,18 +41,18 @@ for token in doc:
 # hate = fn.lus(r'hate\.v')
 # print(hate[0].ID)
 
-role_mapping = load_obj('role_mapping_nonamb_naive_all_sents_UPDATED')
+role_mapping = load_obj('role_mapping_nonamb_lus_long_phrases_all_sents')
 
 # for key, value in role_mapping.items():
 #     print(value[0:3])
 #     print(value[-1])
 
-mapping_lenght = len(role_mapping)
-no_map_count = 0
-no_agent_count = 0
-no_theme_count = 0
-
-
+# mapping_lenght = len(role_mapping)
+# no_map_count = 0
+# no_agent_count = 0
+# no_theme_count = 0
+#
+#
 # for key, value in role_mapping.items():
 #     print(value)
 #     if len(value) < 4:
@@ -76,11 +77,29 @@ no_theme_count = 0
 #with open(os.path.join('obj', 'role_mapping_nonamb_lus_long_phrases_all_sents' + '.pkl'), 'rb') as f:
 #    test_load = pickle.load(f)
 
-test = [1,2,3]
-test2 = [4,5,6]
+with open(os.path.join('eval', 'sina_map_short_eval.pkl'), 'rb') as f:
+    sina_short_eval = pickle.load(f)
 
-for val1 in test:
-    val1 = val1/2
-    print(val1)
+with open(os.path.join('eval', 'sina_map_long_eval.pkl'), 'rb') as f:
+    sina_long_eval = pickle.load(f)
 
-print(test)
+with open(os.path.join('eval', 'sina_map_naive_eval.pkl'), 'rb') as f:
+    sina_naive_eval = pickle.load(f)
+
+with open(os.path.join('eval', 'lschmidt_map_short_eval.pkl'), 'rb') as f:
+    lschmidt_short_eval = pickle.load(f)
+
+with open(os.path.join('eval', 'lschmidt_map_long_eval.pkl'), 'rb') as f:
+    lschmidt_long_eval = pickle.load(f)
+
+with open(os.path.join('eval', 'lschmidt_map_naive_eval.pkl'), 'rb') as f:
+    lschmidt_naive_eval = pickle.load(f)
+
+role_mapping_long = load_obj("role_mapping_nonamb_lus_long_phrases_all_sents")
+# print(lschmidt_short_eval[1])
+# pprint.pprint(lschmidt_long_eval)
+# print(lschmidt_naive_eval[0])
+
+liste = [0,1,2,3,4,5]
+
+print(liste[2:6])
