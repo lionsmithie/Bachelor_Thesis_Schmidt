@@ -1,64 +1,57 @@
-# Text Analytics Project
-* Maintainers
+# Bachelor Thesis - "Konnotierte" Connotation Frames im Satzkontext
+* Maintainer
+* Topic
 * Runthrough
 
 -------------
 -------------
-## Maintainers
-* [Ahmad Fadlallah](abohmaid@windowslive.com), 3442106, Applied Computer Science B.A.
-* [Severin Laicher](severin.laicher@web.de), 3665790, Applied Computer Science M.Sc.
-* [Sina Denzel](sinadenzel@gmail.com), 4018461, Computational Linguistics B.A
-* [Ute Gradmann](utegradmann@gmx.de), 4050818, Computational Linguistics B.A.
+## Maintainer
+* [Leon Schmidt](lschmidt@cl.uni-heidelberg.de), Computational Linguistics B.A.
+
 -------------
 ## General requirements
-* numpy
-* twython
-* tqdm
-* pandas
-* matplotlib
-* csv
 * re
 * os
 * nltk
 * random
-* sklearn
-* datetime
-* scipy
+* framenet
 
 -------------
 
+## Topic
+This repository corresponds to my Bachelor Thesis in which I perform a merge between [FrameNet](https://framenet.icsi.berkeley.edu/fndrupal/) information and Connotation Frames [(Rashkin et. al, 2016)](https://homes.cs.washington.edu/~hrashkin/connframe.html). The semantic roles of each ressource are being connected for every verb that is represented in FrameNet exactly once. The evaluation consists also of an interactive program which can be found in this repository.
+
 ## Runthrough
 To get everything going follow the instructions here. First some requirements need to be met: 
-
-### Requirements for Twitter Access (src/data)
-  * [Register](https://www.ieee.org/profile/public/createwebaccount/showRegister.html) for a (free) IEE-Account to get access to the ***GeoCOV19Tweets Dataset***. 
-[Download](https://ieee-dataport.org/open-access/coronavirus-covid-19-geo-tagged-tweets-dataset#files 
-) all csv-files. There's is no button to do that all at once, 
-so you might want to use an extension like [GetThemAll!](https://chrome.google.com/webstore/detail/downthemall/nljkibfhlpcnanjgbnlnbjecgicbjkge). 
-If you use Chrome, go to settings, search for "downloads" and deactivate "Ask where to save each file before downloading" for convenience.
-Save files in `src/data/GeoCOV19TweetsDataset`
-  * open `src/Twitter-Access.py` with an editor and follow the instructions given in the python-file (credentials for the Twitter API * Tweets Hydration)
-For the final evaluation we need a file containing some information and numbers regarding Covid-19. Therefore got to https://github.com/owid/covid-19-data/tree/master/public/data and click "Download our complete COVID-19 dataset" as csv. Save the file in `src/data/Classifier_Evaluation/owid-covid-data.csv`. 
  
 ### Data Preprocessing
-* When you have done the above, run ``src/Text_Preprocessing.py``. 
-* While this is running, you may want to check out the readme's in ``src/data/Hydrated_Tweets`` and ``src/data/Preprocessed_Tweets`` (not needed to execute the following steps).
+* The Connotation Frame Lexicon can be found in `/data/full_frame_info.txt`
+* In order to run most of the code you need to download FrameNet from the nltk library. You can easily install FrameNet by importing nltk and running the command:
+* nltk.download('framenet_v17')
 
-### Look at statistics
-* To get a better overview and statistics about the data run the file vis.py .
-* It visualizes the preproceced data from "data/Preprocessed_Tweets/" so make sure the preprocessed data are in data directory before running this file.
-* Data like which country has how many tweets.
-* the number of chars in each tweet.
-* the most used words....
-* It also provides an overview about how many tweet in each month from march to december.
+The preprocessing of FrameNet and Connotation Frame data for the purpose of this work is implemented in the folder `/preprocessing/`
+It consists of the following files: 
+* `/connotation_frames_preprocessing.py`: Preprocessing all connotation frames to a format designed for further processes
+* `/framenet_preprocessing.py`: Preprocessing FrameNet data and a few methods for an easier access to FrameNet data
+* `/serialization.py`: Methods for loading and saving pickle objects
 
-### Sentiment Feature Extraction
-* When you have done the above, run ``src/Classifier0.2.py``.
-* to run this file you need to download the word lexikon from https://raw.githubusercontent.com/sebastianruder/emotion_proposition_store/master/NRC-Emotion-Lexicon-v0.92/NRC-emotion-lexicon-wordlevel-alphabetized-v0.92.txt into "data/Sentiment_Classifier/NRC-emotion-lexicon-wordlevel-alphabetized-v0.92.txt"
-* May take 25 hours. You can stop and restart the session, since already generated files will be skipped then.
-* after running this file the folowing columns will beadded to our dataframe each column is a list of (o or 1) with len="the number of words in each tweet"
-* [WORD COUNT]['LEMMATIZED']['Sentiment anger']['Sentiment anticipation']['Sentiment disgust']['Sentiment fear']['Sentiment joy']['NEGATIVE']['POSITIVE']["rawEmojis"]["specialChairs"]["rawHashtags"]
-* the new dataframe will be saved in `src/data/Sentiment_Tweets/TweetsWithEmotions`
+The processed Connotation Frame Verbs can be found as a dictionary in `/preprocessing/obj/extracted_cf_verbs.pkl`.
+
+### Main Algorithms
+The main algorithms can be found in `/framenet_connotationframes_mapping.py`. 
+The implemented methods are:
+* `find_common_verbs(filename)`: Finding all verbs that are in the Connotation Frame lexicon and FrameNet; returns a list of all verbs
+* `cf_verbs_frame_count(filename)`: Computes for each Connotation Frame verb the amount of Lexical Units in FrameNet; returns a dictionary with verbs as key and the amount of LUs as value
+* `find_unambiguous_common_verbs(verb_frame_amount_dict)`: Retrieves verbs that occur only once in FrameNet; returns a list
+* `map_cfs_lus(verbs, cfs)`: Merges the FrameNet information (lemma & Lexical Unit ID) with the respective Connotation Frame for each verb
+* `detect_subject(nlp, sentence, lu)`: Detects the syntactic subject of a given head (verb) and returns it's string, position, head and a boolean whether it's a passive case or not
+* `detect_subject_short_phrase(nlp, sentence, lu)`: Same as above, but the returned subject can be a phrase. All syntactic children of the subject are being added to the phrase
+* `detect_subject_long_phrase(nlp, sentence, lu`): Same as above, but the returned subject can be a phrase. All syntactic descendants (not only children) of the subject are being added to the phrase
+* `detect_object(nlp, sentence, lu)`: Detects the syntactic object of a given head (verb) and returns it's string, position, head and a boolean whether it's a passive case or not
+* `detect_object_short_phrase(nlp, sentence, lu)`: Same as above, but the returned object can be a phrase. All syntactic children of the object are being added to the phrase
+* `detect_object_long_phrase(nlp, sentence, lu`): Same as above, but the returned object can be a phrase. All syntactic descendants (not only children) of the object are being added to the phrase
+* map_cf_roles_and_fes_long_phrase_approach(nlp, mapping_verb_lu_cfs): Mapping of semantic roles with the so calles long phrase approach. For each verb, all sentences in FrameNet are being parsed. If the logical subject/object matches the position of a frame element, this frame element will be added to the set of subject- or object corresponding roles (see Thesis for more detail)
+* 
 ### Sentiment Classification & Evaluation
 * When you have done the above, go to ``src/data/Classifier_Evaluation`` and download the data how it's described in the readme there.
 * Now run ``src/Classifier_Evaluation.py``.
