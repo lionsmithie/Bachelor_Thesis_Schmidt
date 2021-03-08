@@ -15,6 +15,7 @@
 * nltk
 * random
 * framenet
+* spaCy (English language model)
 
 -------------
 
@@ -63,14 +64,22 @@ The interactive program for the evaluation can be found in `/evaluation.py`. The
 * `show_mapping_for_one_verb_naive(nlp, lu_id, lu_text)`: Prints each example sentence and the calculated role mapping (naive approach) for a verb. The method is implemented for checking purposes
 * `show_mapping_for_one_verb_short(nlp, lu_id, lu_text)`: Same as above; for short phrase approach
 * `show_mapping_for_one_verb_long(nlp, lu_id, lu_text)`: Same as above; for long phrase approach
-* `map_evaluation(role_mapping, approach, eval_list)`: The interactive program for the evaluation of the role mapping. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval/` folder. It provides guidance and examples for the evaluation
+* `map_evaluation(role_mapping, approach, eval_list)`: The interactive program for the evaluation of the role mapping. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval` folder. It provides guidance and examples for the evaluation
 * `pick_lus_for_evaluation(nlp, role_mapping)`: Picks pseudo random LUs for the eval and returns statistics so one can be sure there are enough special cases, e.g. passive cases
-* `cf_evaluation(role_mapping, eval_list)`: The interactive program for the evaluation of the Connotation Frames. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. Firstly, the user has to rate the Connotation Frames without context. Only then the two sentences will be displayed and the user shall evaluate the Connotation Frame again. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval/` folder. It provides guidance and examples for the evaluation
+* `cf_evaluation(role_mapping, eval_list)`: The interactive program for the evaluation of the Connotation Frames. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. Firstly, the user has to rate the Connotation Frames without context. Only then the two sentences will be displayed and the user shall evaluate the Connotation Frame again. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval` folder. It provides guidance and examples for the evaluation
 
 Evaluation results - stored in `.pkl` files - can be found in the `/eval` folder.
 
 ### Plots and Statistics
+Plots can be found as `.png` files in `/plots`. 
 
-
+The file `/statistics.py` creates the plots, computes cohen's kappa and reads the evaluation and wraps up the results. The implemented methods are:
+* `frames_per_verb(verb_dictionary)`: Counts the amount of Lexical Units which evoke a specific number of frames
+* `plot_verb_frame_amount(verb_frame_amount_dict)`: Plots the statistics for evoked frames per Verb/Lexical Unit and saves the plot as a .png file
+* `show_dependency_parse(sentence)`: Shows a spaCy dependency parse for the input sentence
+* `cohens_kappa(eval_r1, eval_r2, role)`: Computes cohen's kappa between both annotators for the role mapping evaluation. Either for the agent role or for the theme role
+* `cf_kappa(eval_r1, eval_r2)`: Computes cohen's kappa between both annotators for the Connotation Frame evaluation
+* `read_cf_eval(eval_r1, eval_r2)`: Reads and wraps up the results of the Connotation Frame evaluation and returns the results in a list
+* `cf_kappa_with_original(eval_r1, eval_r2, type)`: Calculates the Cohens Kappa between the original CF values and the evaluated CF values of this work
 
 -------------
