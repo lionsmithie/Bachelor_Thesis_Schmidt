@@ -51,7 +51,7 @@ The implemented methods are:
 * `detect_object_short_phrase(nlp, sentence, lu)`: Same as above, but the returned object can be a phrase. All syntactic children of the object are being added to the phrase
 * `detect_object_long_phrase(nlp, sentence, lu`): Same as above, but the returned object can be a phrase. All syntactic descendants (not only children) of the object are being added to the phrase
 
-# Role Mapping:
+#### Role Mapping:
 * `map_cf_roles_and_fes_long_phrase_all_sents(nlp, mapping_verb_lu_cfs)`: Mapping of semantic roles with the so called long phrase approach. For each verb, all sentences in FrameNet are being parsed. If the logical subject/object matches the position of a frame element, this frame element will be added to the set of subject- or object corresponding roles (see Thesis for more detail)
 * `map_cf_roles_and_fes_short_phrase_all_sents(nlp, mapping_verb_lu_cfs)`: Mapping of semantic roles with the so called short phrase approach
 * `map_cf_roles_and_fes_naive_all_sents(nlp, mapping_verb_lu_cfs)`: Mapping of semantic roles with the so called naive approach
@@ -59,5 +59,18 @@ The implemented methods are:
 All of the methods return a dictionary which contains the Lexical Unit IDs as keys and further information, e.g. thr mapped roles, as values.
 
 ### Evaluation
+The interactive program for the evaluation can be found in `/evaluation.py`. The implemented methods are:
+* `show_mapping_for_one_verb_naive(nlp, lu_id, lu_text)`: Prints each example sentence and the calculated role mapping (naive approach) for a verb. The method is implemented for checking purposes
+* `show_mapping_for_one_verb_short(nlp, lu_id, lu_text)`: Same as above; for short phrase approach
+* `show_mapping_for_one_verb_long(nlp, lu_id, lu_text)`: Same as above; for long phrase approach
+* `map_evaluation(role_mapping, approach, eval_list)`: The interactive program for the evaluation of the role mapping. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval/` folder. It provides guidance and examples for the evaluation
+* `pick_lus_for_evaluation(nlp, role_mapping)`: Picks pseudo random LUs for the eval and returns statistics so one can be sure there are enough special cases, e.g. passive cases
+* `cf_evaluation(role_mapping, eval_list)`: The interactive program for the evaluation of the Connotation Frames. It saves the evaluation of a user in a .pkl file in the folder `/eval/`. The user has to evaluate 25 LUs with 2 sentences each. Firstly, the user has to rate the Connotation Frames without context. Only then the two sentences will be displayed and the user shall evaluate the Connotation Frame again. After each LU, the process is being saved so the user can interrupt the evaluation. A Readme of the evaluation can be found in the `/eval/` folder. It provides guidance and examples for the evaluation
+
+Evaluation results - stored in `.pkl` files - can be found in the `/eval` folder.
+
+### Plots and Statistics
+
+
 
 -------------
